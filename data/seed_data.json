@@ -1,0 +1,267 @@
+{
+  "batteries": [
+    {
+      "battery_id": "BAT-101",
+      "chemistry": "LFP",
+      "rated_capacity_ah": 50.0,
+      "voltage": 3.2,
+      "manufacturer": "Tata AutoComp",
+      "manufacture_date": "2021-04-12",
+      "source_vehicle": "Tata Nexon EV Prime",
+      "owner_name": "Aditya Sharma",
+      "status": "Awaiting Screening",
+      "soh_estimate": null,
+      "safety_status": null,
+      "recommended_action": null,
+      "owner_preference": null,
+      "created_at": "2026-11-04T22:08:39.322918+00:00",
+      "updated_at": "2026-11-04T22:08:39.322918+00:00"
+    },
+    {
+      "battery_id": "BAT-102",
+      "chemistry": "NMC",
+      "rated_capacity_ah": 60.0,
+      "voltage": 3.7,
+      "manufacturer": "CATL",
+      "manufacture_date": "2020-09-18",
+      "source_vehicle": "MG ZS EV",
+      "owner_name": "Priya Patel",
+      "status": "Assessed",
+      "soh_estimate": 76.5,
+      "safety_status": "Safe",
+      "recommended_action": "Repurpose",
+      "owner_preference": "Sell / Exchange",
+      "created_at": "2026-11-04T22:08:39.322918+00:00",
+      "updated_at": "2026-11-04T22:08:39.322918+00:00"
+    },
+    {
+      "battery_id": "BAT-103",
+      "chemistry": "LFP",
+      "rated_capacity_ah": 40.0,
+      "voltage": 3.2,
+      "manufacturer": "BYD FinDreams",
+      "manufacture_date": "2022-01-15",
+      "source_vehicle": "Mahindra XUV400",
+      "owner_name": "Rohan Verma",
+      "status": "Approved",
+      "approved_route": "E-Rickshaw / Light EV",
+      "soh_estimate": 89.4,
+      "safety_status": "Safe",
+      "recommended_action": "Direct Reuse",
+      "owner_preference": "Reuse",
+      "created_at": "2026-11-04T22:08:39.322918+00:00",
+      "updated_at": "2026-11-04T22:08:39.322918+00:00"
+    },
+    {
+      "battery_id": "BAT-104",
+      "chemistry": "NMC",
+      "rated_capacity_ah": 45.0,
+      "voltage": 3.7,
+      "manufacturer": "LG Energy Solution",
+      "manufacture_date": "2019-11-03",
+      "source_vehicle": "Hyundai Kona Electric",
+      "owner_name": "Kavita Reddy",
+      "status": "Assessed",
+      "soh_estimate": 46.2,
+      "safety_status": "Critical Danger",
+      "recommended_action": "Recycle",
+      "owner_preference": "Sell / Exchange",
+      "created_at": "2026-11-04T22:08:39.322918+00:00",
+      "updated_at": "2026-11-04T22:08:39.322918+00:00"
+    }
+  ],
+  "reports": [
+    {
+      "battery_id": "BAT-102",
+      "soh": 76.5,
+      "available_capacity_ah": 45.9,
+      "safety_status": "PASSED",
+      "confidence": 93.0,
+      "decision": "SECOND_LIFE_STORAGE",
+      "mode": "VIRTUAL",
+      "data_quality": "HIGH",
+      "safety_flags": [
+        "Moderate thermal rise (38.2\u00b0C) under high load"
+      ],
+      "plain_english_explanation": "Cell retains 76.5% capacity with intact separator integrity. Ideal for stationary telecom and home solar storage.",
+      "indicative_valuation": {
+        "battery_id": "BAT-102",
+        "chemistry": "NMC",
+        "net_indicative_valuation_inr": 28400.0,
+        "breakdown": {
+          "gross_capacity_credit_inr": 31200.0,
+          "safety_discount_inr": 0.0,
+          "confidence_discount_inr": 1800.0,
+          "processing_fee_inr": 1000.0
+        }
+      },
+      "created_at": "2026-11-04T22:08:39.322918+00:00"
+    },
+    {
+      "battery_id": "BAT-103",
+      "soh": 89.4,
+      "available_capacity_ah": 35.76,
+      "safety_status": "PASSED",
+      "confidence": 97.0,
+      "decision": "CONTINUE_EV",
+      "mode": "VIRTUAL",
+      "data_quality": "HIGH",
+      "safety_flags": [],
+      "plain_english_explanation": "Exceptional LFP health with tight voltage delta (<15mV). Premium candidate for light electric mobility repowering.",
+      "indicative_valuation": {
+        "battery_id": "BAT-103",
+        "chemistry": "LFP",
+        "net_indicative_valuation_inr": 32600.0,
+        "breakdown": {
+          "gross_capacity_credit_inr": 34000.0,
+          "safety_discount_inr": 0.0,
+          "confidence_discount_inr": 400.0,
+          "processing_fee_inr": 1000.0
+        }
+      },
+      "passport": {
+        "passport_id": "PASSPORT-BAT-103-2026",
+        "battery_id": "BAT-103",
+        "approved_route": "E-Rickshaw / Light EV",
+        "technician_id": "TECH-BLR-02",
+        "technician_notes": "Physical cell visual inspection cleared. Terminal busbars in factory condition.",
+        "minted_at": "2026-11-04T22:08:39.322918+00:00",
+        "sha256_hash": "fd9d064ec4efacc5f1c5c5a697a9b4c0e6705bc0b24baab9b95a8fd7a90f1c1a",
+        "exchange_credit_inr": 32600.0,
+        "verification_url": "http://localhost:5173/verify/BAT-103"
+      },
+      "created_at": "2026-11-04T22:08:39.322918+00:00"
+    },
+    {
+      "battery_id": "BAT-104",
+      "soh": 46.2,
+      "available_capacity_ah": 20.79,
+      "safety_status": "FAILED",
+      "confidence": 96.0,
+      "decision": "RECYCLE",
+      "mode": "VIRTUAL",
+      "data_quality": "HIGH",
+      "safety_flags": [
+        "CRITICAL: Thermal Runaway Precursor (T_max = 58.4\u00b0C > 55.0\u00b0C cutoff)",
+        "CRITICAL: Accelerated thermal ramp (dT/dt = 0.52\u00b0C/s >= 0.50\u00b0C/s)",
+        "Severe capacity degradation below 50.0% threshold"
+      ],
+      "plain_english_explanation": "Severe thermal escalation detected during pulse excitation. Internal short circuit suspected. Cell is physically locked out from second-life reuse and slated for hydrometallurgical material recovery.",
+      "indicative_valuation": {
+        "battery_id": "BAT-104",
+        "chemistry": "NMC",
+        "net_indicative_valuation_inr": 4500.0,
+        "breakdown": {
+          "gross_capacity_credit_inr": 4500.0,
+          "safety_discount_inr": 0.0,
+          "confidence_discount_inr": 0.0,
+          "processing_fee_inr": 0.0,
+          "scrap_floor_applied": true
+        }
+      },
+      "created_at": "2026-11-04T22:08:39.322918+00:00"
+    }
+  ],
+  "inventory": [
+    {
+      "cell_id": "CELL-LFP-01",
+      "chemistry": "LFP",
+      "capacity_ah": 3.2,
+      "soh": 88.4,
+      "internal_resistance_mohm": 12.1,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-LFP-02",
+      "chemistry": "LFP",
+      "capacity_ah": 3.2,
+      "soh": 88.9,
+      "internal_resistance_mohm": 11.9,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-LFP-03",
+      "chemistry": "LFP",
+      "capacity_ah": 3.2,
+      "soh": 87.8,
+      "internal_resistance_mohm": 12.4,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-LFP-04",
+      "chemistry": "LFP",
+      "capacity_ah": 3.2,
+      "soh": 88.2,
+      "internal_resistance_mohm": 12.0,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-LFP-05",
+      "chemistry": "LFP",
+      "capacity_ah": 3.2,
+      "soh": 84.1,
+      "internal_resistance_mohm": 13.8,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-LFP-06",
+      "chemistry": "LFP",
+      "capacity_ah": 3.2,
+      "soh": 88.6,
+      "internal_resistance_mohm": 12.2,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-NMC-01",
+      "chemistry": "NMC",
+      "capacity_ah": 2.5,
+      "soh": 91.2,
+      "internal_resistance_mohm": 18.2,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-NMC-02",
+      "chemistry": "NMC",
+      "capacity_ah": 2.5,
+      "soh": 90.8,
+      "internal_resistance_mohm": 18.5,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-NMC-03",
+      "chemistry": "NMC",
+      "capacity_ah": 2.5,
+      "soh": 91.5,
+      "internal_resistance_mohm": 18.0,
+      "status": "Available"
+    },
+    {
+      "cell_id": "CELL-NMC-04",
+      "chemistry": "NMC",
+      "capacity_ah": 2.5,
+      "soh": 78.4,
+      "internal_resistance_mohm": 24.5,
+      "status": "Available"
+    },
+    {
+      "battery_id": "BAT-103",
+      "chemistry": "LFP",
+      "soh": 89.4,
+      "status": "Available",
+      "quantity": 1
+    }
+  ],
+  "exchanges": [
+    {
+      "transaction_id": "TXN-DEMO-BLR-103",
+      "battery_id": "BAT-103",
+      "technician_id": "TECH-BLR-02",
+      "approved": true,
+      "approved_route": "E-Rickshaw / Light EV",
+      "notes": "Physical cell visual inspection cleared. Terminal busbars in factory condition.",
+      "indicative_credit_inr": 32600.0,
+      "signature_hash": "5df457e312df33cccb8a297342fde94aa852fab1cd49ec791f2a853ab6f62055",
+      "timestamp": "2026-11-04T22:08:39.322918+00:00"
+    }
+  ]
+}

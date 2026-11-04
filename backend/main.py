@@ -727,7 +727,7 @@ def get_mbco_recommendations(battery_id: str):
 
 @app.post("/api/what-if", tags=["Analysis"])
 @app.post("/api/analysis/what-if", tags=["Analysis"])
-def run_what_if_simulation(payload: Any):
+def run_what_if_simulation(payload: FlexibleWhatIfRequest):
     battery_id = getattr(payload, "battery_id", "BAT-101")
     
     daily_hours = getattr(payload, "daily_usage_hours", None)
@@ -744,14 +744,29 @@ def run_what_if_simulation(payload: Any):
     if dod_pct is None:
         dod_pct = getattr(payload, "dod_pct", 80.0) or 80.0
 
-    report = reports_collection.find_one(
-        {"battery_id": battery_id},
-        sort=[("created_at", -1)]
-    )
-    current_soh = float(report.get("soh") or 80.0) if report else 80.0
+    current_soh = getattr(payload, "current_soh", None)
+    chemistry = getattr(payload, "chemistry", None)
 
-    bat = batteries_collection.find_one({"battery_id": battery_id})
-    chemistry = bat.get("chemistry", "LFP") if bat else "LFP"
+    if current_soh is None or chemistry is None:
+        try:
+            report = reports_collection.find_one(
+                {"battery_id": battery_id},
+                sort=[("created_at", -1)]
+            )
+            if report and current_soh is None:
+                current_soh = float(report.get("soh") or 80.0)
+        except Exception:
+            pass
+
+        try:
+            bat = batteries_collection.find_one({"battery_id": battery_id})
+            if bat and chemistry is None:
+                chemistry = bat.get("chemistry", "LFP")
+        except Exception:
+            pass
+
+    current_soh = float(current_soh or 80.0)
+    chemistry = chemistry or "LFP"
 
     sim_res = simulate_what_if(
         battery_id=battery_id,

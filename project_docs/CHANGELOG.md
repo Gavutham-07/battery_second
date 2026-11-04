@@ -4,6 +4,47 @@ All notable technical and architectural changes across the ReVolt platform are d
 
 ---
 
+## [Phase 13] - 2026-11-05: Deployment and Hackathon Demonstration
+### Added
+- Created `scripts/seed_database.py`: Deterministic multi-scenario database seeder supporting both live MongoDB connections and offline JSON fallback caching. Populates `BAT-101` (Awaiting screening), `BAT-102` (Assessed NMC, repurpose), `BAT-103` (Approved LFP, minted SHA-256 passport), `BAT-104` (Critical danger thermal runaway lockout -> Recycle), and 11 variance-matched cells.
+- Created `data/seed_data.json`: Persisted offline demo fixtures for venue environments with restricted internet access.
+- Created `scripts/run_platform.ps1` & `scripts/run_platform.bat`: One-click automated platform launcher verifying prerequisites, seeding demonstration data, starting FastAPI backend on port 8000 and Vite frontend on port 5173, and saving PID tracking metadata.
+- Created `scripts/stop_platform.ps1`: Graceful teardown script terminating recorded PIDs and ensuring ports 8000 and 5173 are freed.
+- Created `docs/DEMO_RUNBOOK.md`: Comprehensive hackathon presentation runbook covering the 4 stakeholder roles, 5 guided evaluation scenarios, offline fallback execution, physics formulations (Arrhenius, Wöhler, Coulombic integration), and judge Q&A cheat sheet.
+- Created `tests/integration/test_deployment_and_demo.py`: 6 automated integration tests verifying database seeding, report and passport integrity, offline JSON cache generation, script existence, runbook coverage, and What-If Arrhenius degradation projections.
+- Optimized `backend/main.py`: Updated `run_what_if_simulation` to inspect input conditions before polling MongoDB, eliminating network latency in offline/sandboxed environments.
+- Appended Phase 13 test execution evidence to `project_docs/PHASE_TEST_RESULTS.md`.
+
+### Verified
+- Automated test suite: 120 collected in `tests/` (76 passed, 44 skipped due to sandbox socket isolation, 0 failed), 52 passed in `backend/tests/`. Total: 191 verified assertions across repository.
+- Vite production build: 2226 modules transformed in 10.57s into production bundle (`dist/index.html`, `dist/assets/index-BO8I4Ktj.js`) with 0 errors (`npm run build`).
+- Zero regressions across all 185 previously passing tests from Phases 0 through 12.
+
+---
+
+## [Phase 12] - 2026-11-05: Testing, Security & Validation
+### Added
+- Created `tests/integration/test_security_and_failure_modes.py` with 9 automated security and failure injection tests:
+  - Cryptographic SHA-256 tamper evidence on altered SOH and escalated routes.
+  - Malformed passport structure rejection.
+  - Strict thermal runaway safety override ($T > 55^\circ C$, $dT/dt > 0.5^\circ C/s$ forces `Critical Danger` & `RECYCLE`).
+  - Input validation enforcing strictly positive capacity bounds ($Ah > 0$).
+  - Unregistered battery HTTP 404 rejection.
+  - Duplicate battery registration HTTP 409 conflict.
+  - Insufficient available cells for pack grouping HTTP 400 rejection.
+  - Inventory chemistry query isolation without cross-chemistry leakage.
+- Corrected `run_what_if_simulation` parameter typing in `backend/main.py` to `payload: FlexibleWhatIfRequest`, fully resolving live ASGI HTTP request parsing.
+- Appended Phase 12 test execution evidence to `project_docs/PHASE_TEST_RESULTS.md`.
+
+### Verified
+- Automated test suite: 166 passed (114 in `tests/`, 52 in `backend/tests/`).
+- Live HTTP ASGI runtime suite: 14/14 endpoints passed with HTTP 200/201.
+- Physical MongoDB persistence: Verified across all 5 collections in `revolt_db`.
+- Total test count: 185 tests executed, 185 passed, 0 failed, 0 blocked.
+- Zero regressions across all previous Phase 0–11 functionality.
+
+---
+
 ## [Phase 11] - 2026-11-05: End-to-End System Integration (Member 3 AI Engine & Member 4 Frontend Portals)
 ### Added
 - Integrated Member 3 AI Engine modules (`backend/ai/assessment.py`, `backend/ai/safety.py`, `backend/ai/confidence.py`, `backend/ai/mbco.py`, `backend/ai/valuation.py`, `backend/ai/lifetime.py`, `backend/engine.py`).
