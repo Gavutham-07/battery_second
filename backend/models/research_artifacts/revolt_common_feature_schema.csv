@@ -1,0 +1,27 @@
+feature_name,unit,description
+rest_voltage_v,V,Resting voltage before load pulse
+rest_current_a,A,Current during rest measurement
+pulse_05c_voltage_mean_v,V,Mean voltage during lower-current pulse
+pulse_05c_voltage_min_v,V,Minimum voltage during lower-current pulse
+pulse_05c_voltage_last_v,V,Final observed voltage during lower-current pulse
+pulse_05c_current_mean_a,A,Mean current during lower-current pulse
+pulse_05c_voltage_drop_v,V,Rest voltage minus mean pulse voltage
+pulse_05c_resistance_est_ohm,Ohm,Apparent resistance estimate during lower-current pulse
+pulse_05c_duration_est_s,s,Estimated lower-current pulse duration
+pulse_05c_voltage_slope_v_per_s,V/s,Voltage slope during lower-current pulse
+pulse_1c_voltage_mean_v,V,Mean voltage during higher-current pulse
+pulse_1c_voltage_min_v,V,Minimum voltage during higher-current pulse
+pulse_1c_voltage_last_v,V,Final observed voltage during higher-current pulse
+pulse_1c_current_mean_a,A,Mean current during higher-current pulse
+pulse_1c_voltage_drop_v,V,Rest voltage minus mean pulse voltage
+pulse_1c_resistance_est_ohm,Ohm,Apparent resistance estimate during higher-current pulse
+pulse_1c_duration_est_s,s,Estimated higher-current pulse duration
+pulse_1c_voltage_slope_v_per_s,V/s,Voltage slope during higher-current pulse
+temperature_mean_c,degC,Mean observed temperature during the test
+temperature_max_c,degC,Maximum observed temperature during the test
+temperature_change_c,degC,Temperature change during the test
+recovery_voltage_v,V,Voltage observed during recovery
+recovery_voltage_change_v,V,Voltage change during recovery
+recovery_duration_s,s,Observed recovery duration
+complete_pulse_sequence,boolean,Whether required pulse measurements are present
+pulse_quality,category,Pulse measurement quality classification

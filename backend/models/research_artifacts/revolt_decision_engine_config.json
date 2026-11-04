@@ -1,0 +1,24 @@
+{
+    "lifetime_config": {
+        "reference_cycle_life": null,
+        "reference_dod_pct": null,
+        "reference_temperature_c": null
+    },
+    "application_policies": {
+        "solar_storage": {
+            "minimum_soh": 70,
+            "description": "Stationary solar energy storage"
+        },
+        "backup_power": {
+            "minimum_soh": 75,
+            "description": "Backup power applications"
+        },
+        "low_power_devices": {
+            "minimum_soh": 60,
+            "description": "Low-power applications"
+        }
+    },
+    "valuation_config": {
+        "reference_price_per_kwh_inr": null
+    }
+}

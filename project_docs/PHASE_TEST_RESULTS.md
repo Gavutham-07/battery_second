@@ -520,3 +520,86 @@ This document is the single source of truth for phase-wise test execution and va
 **Final phase verdict:** PASS
 
 **Authorisation for next phase:** WAITING FOR PROJECT OWNER APPROVAL
+
+
+### Phase 11 — End-to-End System Integration (Member 3 AI Engine & Member 4 Frontend Portals)
+
+**Implementation status:** COMPLETE
+
+**Testing status:** PASSED
+
+**Environment:**
+- Python version: 3.12.10
+- Node version: v24.13.0, npm 11.6.2
+- Database status: MongoDB Connected (`mongodb://localhost:27017`, db: `revolt_db`)
+- Server status: FastAPI Uvicorn ASGI Server verified, Vite Production Bundle verified
+
+**Tests executed:**
+
+| Test ID | Test description | Actual command/action | Expected result | Actual result | Status |
+|---|---|---|---|---|---|
+| T1101 | Member 3 telemetry assessment & features | `python -m pytest backend/tests/test_assessment.py` | 8/8 tests pass with 0 errors | 8 passed in 0.82s | PASS |
+| T1102 | Member 3 confidence evaluation & isolation forest | `python -m pytest backend/tests/test_confidence.py` | 5/5 tests pass with 0 errors | 5 passed in 0.74s | PASS |
+| T1103 | Member 3 end-to-end AI decision scenarios | `python -m pytest backend/tests/test_engine.py` | 20/20 decision scenarios pass | 20 passed in 1.25s | PASS |
+| T1104 | Member 3 lifetime Arrhenius/Wöhler projections | `python -m pytest backend/tests/test_lifetime.py` | 4/4 scenario tests pass | 4 passed in 0.35s | PASS |
+| T1105 | Member 3 MBCO circularity optimization | `python -m pytest backend/tests/test_mbco.py` | 4/4 optimization tests pass | 4 passed in 0.36s | PASS |
+| T1106 | Member 3 deterministic safety screening | `python -m pytest backend/tests/test_safety.py` | 7/7 safety rule tests pass | 7 passed in 0.38s | PASS |
+| T1107 | Member 3 indicative valuation engine | `python -m pytest backend/tests/test_valuation.py` | 4/4 valuation tests pass | 4 passed in 0.35s | PASS |
+| T1108 | Frontend multi-portal production build | `npm --prefix frontend run build` | Vite builds 2226 modules with 0 errors | Built in 9.25s (dist/ verified) | PASS |
+| T1109 | Member 4 battery registration & listing API | `pytest tests/integration/test_member_integration_api.py::test_member4_battery_registration_and_listing` | HTTP 201 Created & enriched listing | Verified: status Awaiting Screening | PASS |
+| T1110 | 90s screening stream simulation & live polling | `pytest tests/integration/test_member_integration_api.py::test_member4_stream_simulation_and_live_data` | Generates 90s test, live polling returns waveforms | Verified: 90 points, current_reading & history | PASS |
+| T1111 | End-to-end AI analysis pipeline integration | `pytest tests/integration/test_member_integration_api.py::test_member3_member4_ai_analysis_pipeline` | SOH, safety, MBCO routes, valuation computed | Verified: SOH 89.0%, Safe, Repurpose, credit | PASS |
+| T1112 | What-If simulator parameter alignment | `pytest tests/integration/test_member_integration_api.py::test_member4_what_if_simulation` | Simulates degradation under temp & DoD | Verified: baseline & simulated RUL, cycles | PASS |
+| T1113 | Technician approval & SHA-256 passport minting | `pytest tests/integration/test_member_integration_api.py::test_technician_approval_and_passport_minting` | Approves exchange, mints 64-char SHA-256 hash | Verified: PASSPORT-BAT-*, verified Valid | PASS |
+| T1114 | Owner preference & recycler batch sorting | `pytest tests/integration/test_member_integration_api.py::test_owner_preference_and_recycler_batch_sorting` | Stores preference; batches reuse/repurpose/recycle | Verified: preference updated, batches sorted | PASS |
+| T1115 | Recycler cell inventory & 4S pack grouping | `pytest tests/integration/test_member_integration_api.py::test_cell_inventory_and_pack_grouping` | Groups balanced 4-cell packs with spread delta | Verified: PACK-MOD-*, compatibility Excellent | PASS |
+| T1116 | Full foundational backend test suite | `pytest tests/` | 105/105 tests pass with 0 regressions | 105 passed in 1.65s | PASS |
+
+**Execution evidence:**
+- Member 3 AI Engine suite: `.\venv\Scripts\python -m pytest backend/tests/` -> `52 passed in 3.91s`.
+- Repository test suite: `.\venv\Scripts\pytest tests/` -> `105 passed in 1.65s`.
+- Total test count: 157 passed, 0 failed, 0 blocked.
+- Frontend build: `npm --prefix frontend run build` -> `✓ 2226 modules transformed`, `dist/index.html` (0.82 kB), `dist/assets/index-BO8I4Ktj.js` (829 kB).
+- Integration endpoints verified:
+  - `POST /api/register-battery` -> HTTP 201 Created
+  - `POST /api/simulate-stream` -> HTTP 200 OK (90s waveform stream)
+  - `GET /api/live-data/{battery_id}` -> HTTP 200 OK (`current_reading`, `history`, `is_complete`)
+  - `POST /api/analyze` -> HTTP 200 OK (SOH, confidence, safety flags, second-life matches)
+  - `POST /api/what-if` -> HTTP 200 OK (Arrhenius/Wöhler projections)
+  - `POST /api/approve-and-exchange` -> HTTP 200 OK (SHA-256 passport minted)
+  - `GET /api/verify/{battery_id}` -> HTTP 200 OK (Public cryptographic verification)
+  - `POST /api/owner-preference` -> HTTP 200 OK (Owner preference stored)
+  - `GET /api/recycler-batch` -> HTTP 200 OK (Reuse, Repurpose, Recycle automated batches)
+  - `GET /api/cells-inventory` & `POST /api/group-cells` -> HTTP 200 OK (Balanced pack grouping)
+- Frontend portals verified:
+  - Landing Page (`/`): Role portals, persistent Data Source Selector, quick public verification bar, Classic Console navigation.
+  - Owner Portal (`/owner/*`): MyBatteries, Recommendations, ExchangeOffers, EnvironmentalImpact, MyBatteryPassport, FindServiceCenters.
+  - Technician Portal (`/tech/*`): Dashboard, BatteryQueue, Guided 90s Screening Bench with live charts, What-If Simulator, Approval & Passport Minting.
+  - Recycler Portal (`/recycler/*`): Facility Impact Dashboard, Automated Batch Sorting with safety lockouts, Cell Pack Compatibility Grouping.
+  - Public Verification (`/verify` and `/verify/:battery_id`): Zero-login SHA-256 integrity inspection.
+  - Classic 4-Stakeholder Tabbed Console (`/classic`): Backward-compatible tabbed dashboard with live ModeBanner.
+
+**Errors encountered:**
+- Error 1: `AttributeError: 'Query' object has no attribute 'lower'` when `list_batteries()` was called without ASGI parameters in unit tests.
+  - Root cause: FastAPI `Query(None)` default was inspected directly.
+  - Correction: Added safe `hasattr(status_filter, "default")` check in `list_batteries`.
+  - Retest result: PASS (`test_list_batteries`).
+- Error 2: `AttributeError: 'WhatIfRequest' object has no attribute 'daily_usage_hours'` in `test_what_if_api_endpoint`.
+  - Root cause: Direct attribute access on Pydantic v2 model when passed legacy `WhatIfRequest`.
+  - Correction: Used `getattr(payload, ..., default)` with fallback mapping in `run_what_if_simulation`.
+  - Retest result: PASS (`test_what_if_api_endpoint`).
+- Error 3: Discrepancy between single-cell test bench current and pack rated capacity in 90s Coulomb counting.
+  - Root cause: Fixed 0.5A test bench current yielded low charge integration when evaluated against 50 Ah pack.
+  - Correction: Scaled simulated test stream current to 0.2C rate with pulse surges and calibrated 90s screening protocol SOH estimator.
+  - Retest result: PASS (`test_member3_member4_ai_analysis_pipeline`).
+
+**Regression testing:**
+- Previously working features tested: API Health check, CORS middleware, Battery registration CRUD, Telemetry ingestion, Hardware runner modes, SOH/capacity estimation, Safety screening, MBCO solver, Valuation, What-If simulation, Digital Battery Passport, Technician approval, Recycler pack grouping, Frontend tab components (T201-T1005).
+- Results: All 98 previous tests re-executed and passed with zero regressions.
+
+**Unresolved issues:**
+- None.
+
+**Final phase verdict:** PASS
+
+**Authorisation for next phase:** WAITING FOR PROJECT OWNER APPROVAL

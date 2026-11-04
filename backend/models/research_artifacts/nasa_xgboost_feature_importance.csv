@@ -1,0 +1,13 @@
+feature,importance
+voltage_mean,0.5725676
+temperature_std,0.20528734
+current_std,0.07867416
+current_mean,0.067543015
+discharge_duration_s,0.043247923
+temperature_max,0.014474537
+voltage_max,0.008594303
+voltage_std,0.0037926577
+temperature_mean,0.003605125
+current_min,0.0010543623
+voltage_min,0.00088147307
+current_max,0.00027746905

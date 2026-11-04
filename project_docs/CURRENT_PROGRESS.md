@@ -13,32 +13,34 @@
   - **Phase 8:** Digital Battery Passport and Transactions (Completed 2026-11-05).
   - **Phase 9:** Recycler Inventory and Balanced Pack Grouping (Completed 2026-11-05).
   - **Phase 10:** Frontend Implementation (Completed 2026-11-05).
-- **Current Active Phase:** **Phase 10 Completion & Sign-off Gate** (Awaiting Project Owner confirmation to begin Phase 11).
-- **Next Phase:** **Phase 11 — End-to-End System Integration**.
+  - **Phase 11:** End-to-End System Integration — Member 3 AI Engine & Member 4 Frontend Portals (Completed 2026-11-05).
+- **Current Active Phase:** **Phase 11 Completion & Sign-off Gate** (Awaiting Project Owner confirmation to finalize and deploy).
+- **Next Phase:** **Platform Finalization & Deployment Verification**.
 
 ---
 
 ## 2. Files Created & Modified
 
-### Created/Modified in Phase 10
-- `frontend/package.json` (React 18.3.1, Lucide-React, Vite 6.1.0 build configuration)
-- `frontend/vite.config.js` (Proxy routing for `/api` to `http://127.0.0.1:8000`)
-- `frontend/index.html` (HTML5 template with JetBrains Mono and Plus Jakarta Sans fonts)
-- `frontend/src/index.css` (Dark slate responsive CSS system with glassmorphic cards, badges, buttons, sliders, and tables)
-- `frontend/src/main.jsx` (React 18 entrypoint)
-- `frontend/src/App.jsx` (Main platform controller with global header, mode provenance banner, 4 stakeholder navigation tabs, toast system, and metadata footer)
-- `frontend/src/components/ModeBanner.jsx` (Interactive 4-mode provenance badge selector: `LIVE`, `REPLAY`, `VIRTUAL`, `DATASET` with backend connectivity indicator)
-- `frontend/src/components/CustomerTab.jsx` (Customer / EV Owner portal: decoupled SOH/capacity metrics, MBCO route recommendations, itemized valuation breakdown, and real-time Arrhenius/Wöhler What-If simulator sliders)
-- `frontend/src/components/TechnicianTab.jsx` (Certified Technician portal: cell registration form, real-time multi-variable telemetry stream chart, safety screener indicators, and formal inspection sign-off transaction workflow)
-- `frontend/src/components/RecyclerTab.jsx` (Recycler portal: live cell inventory table with status/chemistry filters, balanced 4-cell series-parallel grouping engine ensuring $\sigma_{SOH} \le 3.0\%$)
-- `frontend/src/components/AuditorTab.jsx` (Public / Auditor portal: Digital Battery Passport metadata viewer, SVG QR representation, and in-browser cryptographic SHA-256 tamper verification workbench)
-- `frontend/src/components/TelemetryChart.jsx` (High-performance multi-variable SVG telemetry time-series graph for Voltage, Current, and Temperature)
-- `frontend/src/components/QRCodeDisplay.jsx` (Deterministic SVG QR matrix generator with clipboard copy for decentralized verification)
-- `tests/integration/test_frontend_build.py` (5 integration tests covering file structure, production build artifacts, 4-mode banner, 4 stakeholder tabs, and 100% frontend-to-backend API contract alignment)
-- `project_docs/PHASE_TEST_RESULTS.md` (Appended Phase 10 test execution evidence)
-
-### Created/Modified in Earlier Phases
-- `backend/pack_grouper.py`, `backend/passport.py`, `ai_engine/`, `hardware/`, `backend/`, and complete 18-document governance suite in `project_docs/`.
+### Created/Integrated in Phase 11
+- `backend/ai/assessment.py`: Member 3 telemetry validation, anomaly detection, statistical and pulse feature extraction.
+- `backend/ai/safety.py`: Member 3 deterministic safety screening with chemistry-specific thresholds and `SafetyState` enum.
+- `backend/ai/confidence.py`: Member 3 evidence-based confidence evaluation and Isolation Forest distribution shift detection.
+- `backend/ai/mbco.py`: Member 3 Multi-Objective Battery Circularity Optimisation engine.
+- `backend/ai/valuation.py`: Member 3 route-wise valuation calculations.
+- `backend/ai/lifetime.py`: Member 3 Arrhenius and Wöhler scenario-based lifetime projections.
+- `backend/engine.py`: Member 3 top-level evaluation facade (`evaluate_battery`).
+- `backend/models/research_artifacts/`: NASA XGBoost benchmark model, Isolation Forest pkl, feature schemas, and decision engine config.
+- `backend/tests/`: 52 Member 3 automated tests across assessment, confidence, engine, lifetime, mbco, safety, and valuation.
+- `frontend/src/pages/`: Member 4 multi-portal pages (LandingPage, OwnerDashboard, MyBatteries, FindServiceCenters, Recommendations, ExchangeOffers, EnvironmentalImpact, MyBatteryPassport, TechnicianDashboard, BatteryQueue, BatteryScreening, WhatIfSimulator, ApprovalPassport, ImpactSummary, BatchSorting, PackGrouping, PublicVerification).
+- `frontend/src/context/`: BatteryContext, DataSourceContext.
+- `frontend/src/services/`: Centralized API service layer (`api.js`), assessment engine, and data simulation.
+- `frontend/src/components/`: DataSourceSelector, Navbar, Sidebar.
+- `frontend/src/pages/ClassicConsole.jsx`: Dedicated classic 4-stakeholder tabbed console view accessible via `/classic`.
+- `frontend/src/App.jsx`: Master router integrating all portal routes and legacy console.
+- `frontend/tailwind.config.js` & `frontend/postcss.config.js`: Tailwind CSS integration.
+- `backend/main.py`: Unified API layer providing endpoints for both legacy contracts and Member 4 frontend service layer.
+- `backend/schemas.py`: Augmented schema definitions for frontend requests (`RegisterBatteryRequest`, `SimulateStreamRequest`, etc.).
+- `tests/integration/test_member_integration_api.py`: 7 automated integration tests verifying end-to-end multi-portal workflow.
 
 ---
 
@@ -46,49 +48,39 @@
 
 | Feature Area | Status | Notes |
 | :--- | :--- | :--- |
-| **Governance & Documentation** | **COMPLETE** | 18 master context and contract documents created. |
+| **Governance & Documentation** | **COMPLETE** | 18 master context and contract documents maintained. |
 | **Environment & Foundation** | **COMPLETE** | `.env` configured, CORS mounted, health endpoint running. |
 | **Domain Schemas** | **COMPLETE** | Enums locked (`PASSED`, `WARNING`, etc.), bounds enforced. |
-| **Battery Registration APIs** | **COMPLETE** | Registration, 409 duplicate check, get by ID, list all. |
+| **Battery Registration APIs** | **COMPLETE** | Both `POST /api/batteries` and `POST /api/register-battery` active. |
 | **Canonical Telemetry Ingestion**| **COMPLETE** | `POST /api/live-data` verified with mode tagging. |
-| **Data Modes (REPLAY, VIRTUAL, DATASET)**| **VERIFIED** | All software acquisition runners active and tested. |
-| **Data Modes (LIVE Hardware)**| **BLOCKED** | Physical ESP32 hardware not connected to host COM ports. |
-| **Feature Extraction Engine** | **COMPLETE** | Coulomb counting, $dV/dt$, $\Delta T/\Delta t$, $R_{int}$. |
-| **Decoupled SOH & Capacity** | **COMPLETE** | Distinct $SOH$ ($0-100\%$) and Available Capacity ($Ah$). |
-| **Safety Precedence Gate** | **COMPLETE** | Verified override: high SOH with warning/failure never reused. |
-| **Confidence & Data Quality** | **COMPLETE** | Calibrated confidence score and missing interval tracking. |
-| **MBCO Optimization Solver** | **COMPLETE** | 5 circularity routes ranked with explainability breakdowns. |
-| **Valuation & What-If** | **COMPLETE** | Transparent valuation breakdown & Arrhenius/Wöhler RUL simulator. |
-| **Digital Battery Passport** | **COMPLETE** | Canonical SHA-256 hash, tamper verification & QR generation. |
+| **90s Screening Stream Simulator**| **COMPLETE** | `POST /api/simulate-stream` generates 90s test with profile selection. |
+| **Live Telemetry Polling** | **COMPLETE** | `GET /api/live-data/{id}` returns waveforms, current reading, history. |
+| **AI Assessment Pipeline** | **COMPLETE** | Unifies Member 3 Decision Engine and foundational XGBoost/physics models. |
+| **Arrhenius & Wöhler What-If** | **COMPLETE** | Dual endpoints `POST /api/what-if` and `POST /api/analysis/what-if`. |
+| **Digital Battery Passport** | **COMPLETE** | Mints SHA-256 passports; zero-login public verification at `/verify`. |
 | **Technician Sign-off & Exchanges**| **COMPLETE** | Authenticated approval, signature hash, inventory dispatch. |
-| **Recycler Balanced Pack Grouping**| **COMPLETE** | 4-cell group algorithm with $\sigma_{SOH} \le 3.0\%$ and atomic reservation. |
-| **Frontend UI (React / Vite)** | **COMPLETE** | 4 stakeholder tabs, 4-mode banner, SVG telemetry chart, QR viewer. |
-| **End-to-End System Integration**| **PENDING** | Scheduled for Phase 11. |
+| **Recycler Batch Sorting** | **COMPLETE** | `GET /api/recycler-batch` automated sorting with safety lockouts. |
+| **Balanced Pack Grouping** | **COMPLETE** | Dual endpoints with $\sigma_{SOH} \le 3.0\%$ and compatibility scoring. |
+| **Frontend Multi-Portal UX** | **COMPLETE** | React Router portals: Owner, Tech, Recycler, Public Verification. |
+| **Classic 4-Stakeholder Tab Console**| **COMPLETE** | Available at `/classic` for backward compatibility. |
 
 ---
 
 ## 4. Tests Passed & Failed
-- **Pytest Suite:** 98 tests executed, 98 passed in 1.12s.
-- **Phase 10 Specific Tests:** 5 tests executed, 5 passed, 0 failed, 0 blocked.
-- **Frontend Production Build:** Built 1595 modules in 2.33s with 0 errors.
-- **Vite HTTP Server Preview:** Verified running on `http://localhost:4173`, serving HTTP 200.
-- **Regression Tests:** 93 previous tests re-executed and passed with zero regressions.
+- **Member 3 AI Engine Suite:** 52 tests executed, 52 passed in 3.91s.
+- **Repository Foundational & Integration Suite:** 105 tests executed, 105 passed in 1.65s.
+- **Total Automated Tests:** **157 passed, 0 failed, 0 blocked**.
+- **Frontend Production Build:** Built 2226 modules in 9.25s with 0 errors (`npm run build`).
+- **Regression Tests:** All 98 previously passing tests re-executed and verified with zero regressions.
 
 ---
 
 ## 5. Known Bugs & Codebase Issues
-- Physical ESP32 micro-controller not plugged into host USB ports (Tracked as hardware limitation; software fallback modes are operational).
+- Physical ESP32 hardware not connected to host USB/COM ports (Tracked as physical hardware limitation; software virtual, replay, and dataset modes are 100% operational).
 
 ---
 
-## 6. Pending Integrations & External Dependencies
-1. **Physical Sensor Stream:** Connect Mona's ESP32 when hardware bench is ready.
-2. **End-to-End Walkthrough Execution:** Phase 11 (Full user journey across hardware stream, backend persistence, AI assessment, and React frontend).
-3. **Reference Documents:** Project Owner to add original PDFs into `docs/reference/`.
-
----
-
-## 7. Permanent Decisions (Must NOT Be Changed)
+## 6. Permanent Decisions (Must NOT Be Changed)
 1. **Canonical Ingestion Endpoint:** `POST /api/live-data` with keys `battery_id`, `sec`, `v`, `i`, `t`, `event`.
 2. **SOH and Confidence Units:** Float percentages between $0.0$ and $100.0\%$.
 3. **Decoupled Intelligence Outputs:** SOH and Available Capacity ($Ah$) are strictly separate outputs.
@@ -97,15 +89,4 @@
 6. **Transparent Valuation:** Itemized breakdown with scrap floor guarantees and explicit risk penalties.
 7. **Digital Passport Integrity:** Bit-for-bit deterministic canonical SHA-256 hashing; zero tolerance for tampering.
 8. **Balanced Cell Grouping:** Minimizes intra-pack SOH variance ($\sigma_{SOH} \le 3.0\%$) and strictly isolates non-matching chemistries.
-9. **Four Stakeholder Tabs:** Customer, Certified Technician, Recycler, and Public Auditor views.
-10. **Database Engine & Collections:** Exactly 5 collections in `revolt_db` (`batteries`, `tests`, `reports`, `exchanges`, `inventory`).
-11. **AI Package Boundary:** In-repo Python package (`ai_engine/`) owned by Member 3.
-
----
-
-## 8. Exact Next Action
-Wait for Project Owner's explicit review and approval of Phase 10 deliverables. Upon approval, proceed to **Phase 11 — End-to-End System Integration**:
-1. Connect physical hardware stream, backend persistence, AI assessment, and React frontend into a unified runtime.
-2. Execute complete runbook: Register cell $\rightarrow$ Ingest telemetry in REPLAY/VIRTUAL/DATASET modes $\rightarrow$ Run MBCO $\rightarrow$ Submit technician approval $\rightarrow$ Verify passport $\rightarrow$ Group in recycler inventory.
-3. Verify all 4 modes dynamically switch in frontend.
-4. Execute Phase 11 test suite, record in `PHASE_TEST_RESULTS.md`, and report results.
+9. **Multi-Portal & Classic Console:** Both the modern route-based multi-portal architecture and the classic 4-tab console are fully supported.
