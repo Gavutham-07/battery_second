@@ -1,0 +1,8 @@
+# CLINECONTINUITY RULES FOR REVOLT
+
+1. Working Branch: Always operate on `feat-frontend`.
+2. Workspace Boundaries: Only write/edit files in `frontend/`, `README.md`, `PROJECT_CONTEXT.md`, `FRONTEND_HANDOFF.md`, `API_CONTRACT.md`, `CHANGELOG.md`, `AI_INSTRUCTIONS.md`, and `.clinerules`.
+3. Never Rebuild: Never delete or rebuild working components or rewrite existing implementations.
+4. Style Integrity: Follow the ReVolt design system (Muted emerald green #059669/#10b981, Dark Navy #0f172a, clean cards, no neon/flashy gradients).
+5. Continuity: Update `FRONTEND_HANDOFF.md` and `CHANGELOG.md` upon completing tasks so that any handoff is seamless.
+
