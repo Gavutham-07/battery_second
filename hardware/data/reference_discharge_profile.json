@@ -1,0 +1,13 @@
+[
+  {"battery_id": "BAT-REF-001", "sec": 0.0, "v": 4.200, "i": 0.000, "t": 25.00, "event": "REST"},
+  {"battery_id": "BAT-REF-001", "sec": 10.0, "v": 4.050, "i": 1.000, "t": 25.30, "event": "DISCHARGE"},
+  {"battery_id": "BAT-REF-001", "sec": 20.0, "v": 3.980, "i": 1.000, "t": 25.70, "event": "DISCHARGE"},
+  {"battery_id": "BAT-REF-001", "sec": 30.0, "v": 3.910, "i": 1.000, "t": 26.20, "event": "DISCHARGE"},
+  {"battery_id": "BAT-REF-001", "sec": 40.0, "v": 3.840, "i": 1.000, "t": 26.80, "event": "DISCHARGE"},
+  {"battery_id": "BAT-REF-001", "sec": 50.0, "v": 3.760, "i": 1.000, "t": 27.50, "event": "DISCHARGE"},
+  {"battery_id": "BAT-REF-001", "sec": 60.0, "v": 3.650, "i": 1.000, "t": 28.30, "event": "DISCHARGE"},
+  {"battery_id": "BAT-REF-001", "sec": 70.0, "v": 3.480, "i": 1.000, "t": 29.20, "event": "DISCHARGE"},
+  {"battery_id": "BAT-REF-001", "sec": 80.0, "v": 3.200, "i": 1.000, "t": 30.10, "event": "DISCHARGE"},
+  {"battery_id": "BAT-REF-001", "sec": 90.0, "v": 3.000, "i": 0.000, "t": 30.30, "event": "STOP"}
+]
+
