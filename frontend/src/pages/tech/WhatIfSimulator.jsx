@@ -48,7 +48,7 @@ export default function WhatIfSimulator() {
           <select
             value={selectedBatteryId}
             onChange={(e) => setSelectedBatteryId(e.target.value)}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white focus:border-emerald-500"
+            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
           >
             {batteries.map((b) => (
               <option key={b.battery_id} value={b.battery_id}>

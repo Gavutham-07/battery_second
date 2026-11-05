@@ -163,7 +163,7 @@ export default function PackGrouping() {
               <select
                 value={targetChemistry}
                 onChange={(e) => setTargetChemistry(e.target.value)}
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white focus:border-emerald-500"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
               >
                 <option value="LFP">LFP (Lithium Iron Phosphate)</option>
                 <option value="NMC">NMC (Nickel Manganese Cobalt)</option>
@@ -176,7 +176,7 @@ export default function PackGrouping() {
                 type="text"
                 value={packName}
                 onChange={(e) => setPackName(e.target.value)}
-                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500"
+                className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
               />
             </div>
 

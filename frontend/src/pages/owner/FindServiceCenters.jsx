@@ -107,7 +107,7 @@ export default function FindServiceCenters() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by city, area (e.g. Whitefield, Koramangala) or PIN code (560066)..."
-            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900"
           />
         </div>
 

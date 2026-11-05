@@ -84,7 +84,7 @@ export default function PublicVerification() {
                 value={searchId}
                 onChange={(e) => setSearchId(e.target.value)}
                 placeholder="Enter Battery ID (e.g. BAT-103, BAT-101)..."
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-emerald-500"
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-emerald-500 bg-white text-slate-900"
               />
             </div>
             <button

@@ -113,7 +113,7 @@ export default function MyBatteries() {
               value={formData.battery_id}
               onChange={(e) => setFormData({ ...formData, battery_id: e.target.value })}
               placeholder="e.g. BAT-105"
-              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900"
             />
           </div>
 
@@ -124,7 +124,7 @@ export default function MyBatteries() {
             <select
               value={formData.chemistry}
               onChange={(e) => setFormData({ ...formData, chemistry: e.target.value })}
-              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white"
+              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900"
             >
               <option value="LFP">LFP (Lithium Iron Phosphate)</option>
               <option value="NMC">NMC (Nickel Manganese Cobalt)</option>
@@ -143,7 +143,7 @@ export default function MyBatteries() {
               value={formData.rated_capacity_ah}
               onChange={(e) => setFormData({ ...formData, rated_capacity_ah: e.target.value })}
               placeholder="e.g. 50"
-              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900"
             />
           </div>
 
@@ -156,7 +156,7 @@ export default function MyBatteries() {
               value={formData.vehicle_model}
               onChange={(e) => setFormData({ ...formData, vehicle_model: e.target.value })}
               placeholder="e.g. Tata Nexon EV"
-              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900"
             />
           </div>
 

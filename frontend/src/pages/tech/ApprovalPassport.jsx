@@ -93,7 +93,7 @@ export default function ApprovalPassport() {
               setMintSuccess('');
               setMintError('');
             }}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white focus:border-emerald-500"
+            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
           >
             {batteries.map((b) => (
               <option key={b.battery_id} value={b.battery_id}>
@@ -197,7 +197,7 @@ export default function ApprovalPassport() {
                   value={approvedRoute}
                   onChange={(e) => setApprovedRoute(e.target.value)}
                   disabled={currentBattery.safety_status === 'Critical Danger'}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white"
+                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900"
                 >
                   <option value="Home Solar Storage">Home Solar Storage (Stationary ESS)</option>
                   <option value="E-Rickshaw / Light EV">E-Rickshaw / Light EV (Motive Repower)</option>
@@ -215,7 +215,7 @@ export default function ApprovalPassport() {
                   rows="3"
                   value={technicianNotes}
                   onChange={(e) => setTechnicianNotes(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900"
                 />
               </div>
 
