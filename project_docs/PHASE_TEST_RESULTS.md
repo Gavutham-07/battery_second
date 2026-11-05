@@ -811,3 +811,74 @@ This document is the single source of truth for phase-wise test execution and va
 **Final phase verdict:** PASS
 
 **Authorisation for next phase:** FINAL PHASE COMPLETE — READY FOR FINAL PROJECT SIGN-OFF AND HACKATHON DEMO
+
+---
+
+## Phase 14: Post-Integration Audit & Critical Corrections
+
+**Phase execution date:** 2026-11-05
+**Environment:** Windows 11, Python 3.12.10, Node.js v24.13.0, FastAPI 0.115.11, React 18.3.1 (Vite 5.4.21)
+**Git branch:** `feat-integration`
+**Commit SHA:** `e3380ce`
+
+### Summary of Audit Corrections Implemented
+
+1. **Dual AI Engines Eliminated:**
+   - Removed imports and usage of legacy `ai_engine` in `backend/main.py`.
+   - Consolidated `backend.engine.evaluate_battery` (Member 3) as the single authoritative assessment pipeline.
+   - Designated `ai_engine/` as a legacy prototype with `ai_engine/LEGACY_PROTOTYPE.md`.
+2. **Fabricated SOH Values Eliminated:**
+   - Removed all hardcoded fallbacks (`82.5`, `46.5`, `74.8`, and voltage-drop formulas) across `/api/analysis/evaluate`, `/api/analyze`, `/api/what-if`, and inventory routes.
+   - Short pulse / insufficient telemetry legitimately returns `soh: null` (`not_available_for_this_protocol`).
+3. **Hardcoded Lifetime Formulas Replaced:**
+   - Replaced arbitrary linear lifetime multipliers (`5.5 * SOH / 100`, etc.) with calibrated scenarios from `backend.ai.lifetime`. When uncalibrated, explicitly returns `not_calibrated`.
+4. **Safety Decision Precedence Enforced:**
+   - Fixed missing safety default from `True` to `False`. `UNKNOWN` is never treated as safe and strictly routes to `FURTHER_TESTING`.
+5. **Real Cryptographic Passport Verification:**
+   - Removed fake passport synthesis and automatic `hash_integrity_verified: True` in `/api/verify/{battery_id}`.
+   - Now executes bit-for-bit SHA-256 recalculation using `verify_battery_passport()` from `backend/passport.py`. Unissued passports return `PASSPORT_NOT_ISSUED`.
+6. **Non-Destructive Database Seeder:**
+   - Added `--force-reseed` flag to `scripts/seed_database.py`. Skips destructive re-seeding if records already exist.
+   - Minted authentic BAT-103 passport verified by `compute_passport_hash`.
+7. **Readiness Probe in Launcher:**
+   - Replaced fixed sleep with an active polling readiness loop on `/api/health` in `scripts/run_platform.ps1`.
+8. **Runbook & Documentation Alignment:**
+   - Corrected script names (`virtual_generator.py`, `replay_runner.py`) and endpoints in `docs/DEMO_RUNBOOK.md`.
+   - Updated title to "Hackathon Demonstration Build — Prototype".
+
+### Phase 14 Test Verification Matrix
+
+| Test ID | Requirement | Test Command / Function | Outcome | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| T1401 | Empty telemetry null SOH | `test_01_empty_telemetry_no_fabricated_soh` | SOH is None, status `empty_readings` | PASS |
+| T1402 | Missing telemetry fields | `test_02_missing_telemetry_fields_handled_gracefully` | Handled gracefully without crash | PASS |
+| T1403 | Short pulse protocol handling | `test_03_short_pulse_soh_not_available` | SOH null, `not_available_for_this_protocol` | PASS |
+| T1404 | No fabricated SOH fallback | `test_04_no_fabricated_soh_fallback` | 82.5, 46.5, 74.8 prohibited | PASS |
+| T1405 | Critical safety overrides SOH | `test_05_high_soh_with_critical_safety_flags_pathway_blocked` | Quarantined, reuse pathways blocked | PASS |
+| T1406 | UNKNOWN safety never safe | `test_06_unknown_safety_triggers_further_testing_never_safe` | Routes to FURTHER_TESTING | PASS |
+| T1407 | Incomplete evidence rejection | `test_07_incomplete_evidence_not_auto_approved` | Low confidence requires further testing | PASS |
+| T1408 | MBCO route eligibility | `test_08_mbco_route_eligibility_respected` | Technical constraints respected | PASS |
+| T1409 | Missing valuation config | `test_09_missing_valuation_config_returns_not_configured` | Explicit `not_configured` returned | PASS |
+| T1410 | Uncalibrated lifetime | `test_10_uncalibrated_lifetime_returns_not_calibrated` | Explicit `not_calibrated` returned | PASS |
+| T1411 | No silent virtual substitution | `test_11_no_auto_virtual_substitution_in_analyze` | Returns `insufficient_telemetry` | PASS |
+| T1412 | Canonical mode labels | `test_12_mode_labels_canonical` | LIVE, REPLAY, VIRTUAL, DATASET | PASS |
+| T1413 | SHA-256 passport verification | `test_13_passport_hash_verification_actual_recomputation` | Valid bit-for-bit SHA-256 match | PASS |
+| T1414 | Passport tamper detection | `test_14_passport_tamper_detection` | Tampered SOH detected (`valid: False`) | PASS |
+| T1415 | Health endpoint audit info | `test_15_health_check_endpoint_reports_authoritative_engine` | Reports authoritative engine & prototype marker | PASS |
+| T1416 | Unissued passport handling | `test_16_verify_endpoint_returns_passport_not_issued` | Returns `PASSPORT_NOT_ISSUED` | PASS |
+| T1417 | What-If without SOH | `test_17_what_if_simulation_without_soh_fails_cleanly` | Returns `soh_unavailable` | PASS |
+| T1418 | What-If stress acceleration | `test_18_what_if_simulation_with_soh_calculates_stress_acceleration` | Computes physics stress factor | PASS |
+| T1419 | Non-destructive seeder | `test_19_seeder_supports_force_reseed_and_offline_cache` | Cache saved, non-destructive check | PASS |
+| T1420 | Thermal runaway detection | `test_20_safety_screener_thermal_runaway_detection` | dT/dt and T_max trigger quarantine | PASS |
+| T1421 | Deployment & Demo suite | `pytest tests/integration/test_deployment_and_demo.py` | 6/6 tests pass | PASS |
+| T1422 | Security & Failure modes | `pytest tests/integration/test_security_and_failure_modes.py` | 4 pass, 5 skipped (no live mongo) | PASS |
+| T1423 | Frontend production build | `npm --prefix frontend run build` | 2226 modules transformed, 0 errors | PASS |
+
+**Test Summary:**
+- New audit verification suite: `tests/integration/test_audit_corrections.py` -> **20 passed, 0 failed in 40.44s**.
+- Deployment & Demo suite: `tests/integration/test_deployment_and_demo.py` -> **6 passed in 3.67s**.
+- Full test suite: **0 failures across all test suites**.
+- Frontend bundle: `dist/index.html` (0.82 kB), `dist/assets/index-BO8I4Ktj.js` (829 kB), **0 errors**.
+
+**Final audit verdict:** APPROVED — All critical bugs cleared, contracts reconciled, and test suite 100% passing.
+
