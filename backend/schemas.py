@@ -112,6 +112,7 @@ class FlexibleWhatIfRequest(BaseModel):
 class ApproveAndExchangeRequest(BaseModel):
     battery_id: str
     technician_id: str = "TECH-01"
+    technician_pin: Optional[str] = None
     technician_notes: Optional[str] = "Passed visual and technical screening"
     approved_route: Optional[str] = "Home Solar Storage"
     exchange_credit_inr: Optional[float] = None

@@ -1193,14 +1193,16 @@ def verify_battery_endpoint(battery_id: str):
 
     soh = report.get("soh") if report else None  # None is correct for short-pulse data; never substitute a default.
     safety = report.get("safety_status", "UNKNOWN") if report else "UNKNOWN"
-    # Canonical safety enum mapping.
-    safety_display_map = {
-        "PASSED": "Safe", "SAFE": "Safe",
-        "WARNING": "Warning",
-        "FAILED": "Critical Danger", "CRITICAL_DANGER": "Critical Danger",
-        "UNKNOWN": "Unknown — Further Testing Required",
-    }
-    safety_display = safety_display_map.get(safety.upper() if safety else "UNKNOWN", safety)
+    # Canonical safety enum mapping per Contract C3:
+    # Safe (SCREENING_CLEAR), Warning (WARNING), Critical Danger (QUARANTINE_SPECIALIST_REVIEW), Unknown — Further Testing Required (anything else)
+    if safety == "SCREENING_CLEAR" or safety in ("PASSED", "SAFE"):
+        safety_display = "Safe"
+    elif safety == "WARNING":
+        safety_display = "Warning"
+    elif safety in ("QUARANTINE_SPECIALIST_REVIEW", "CRITICAL_DANGER", "FAILED"):
+        safety_display = "Critical Danger"
+    else:
+        safety_display = "Unknown — Further Testing Required"
 
     return {
         "verification_status": "VERIFIED" if hash_ok else "TAMPERED",
@@ -1209,10 +1211,10 @@ def verify_battery_endpoint(battery_id: str):
         "safety_status": safety_display,
         "approved_route": passport.get("approved_route"),
         "technician_id": passport.get("technician_id"),
-        "minted_at": passport.get("minted_at"),
-        "sha256_hash": passport.get("sha256_hash", ""),
+        "minted_at": passport.get("approved_at") or passport.get("minted_at") or passport.get("issued_at"),
+        "sha256_hash": passport.get("integrity_hash", ""),
         "hash_integrity_verified": hash_ok,  # Only True after actual verify_battery_passport() confirmation.
-        "verification_detail": verification.get("detail"),
+        "verification_detail": verification.get("error") or "Integrity verified bit-for-bit",
     }
 
 
@@ -1302,64 +1304,130 @@ def approve_exchange(payload: ExchangeApproval):
 
 @app.post("/api/approve-and-exchange", tags=["Exchanges"])
 def approve_and_exchange_endpoint(payload: ApproveAndExchangeRequest):
+    # 1. Technician PIN verification (TECH_PIN env, default "2468")
+    expected_pin = os.getenv("TECH_PIN", "2468")
+    if payload.technician_pin != expected_pin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid technician PIN"
+        )
+
     battery_id = payload.battery_id
+
+    # 2. Battery existence check (no auto-creation of unknown batteries)
     battery = batteries_collection.find_one({"battery_id": battery_id})
-    now_iso = datetime.now(timezone.utc).isoformat()
-
     if not battery:
-        batteries_collection.insert_one({
-            "battery_id": battery_id,
-            "chemistry": "LFP",
-            "rated_capacity_ah": 50.0,
-            "status": "Awaiting Screening",
-            "created_at": now_iso,
-            "updated_at": now_iso
-        })
-        battery = batteries_collection.find_one({"battery_id": battery_id})
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Battery '{battery_id}' not found in registry"
+        )
 
+    # 3. Assessment report existence check (no auto-analyzing)
     report = reports_collection.find_one(
         {"battery_id": battery_id},
         sort=[("created_at", -1)]
     )
     if not report:
-        analyze_endpoint(AnalyzeRequest(battery_id=battery_id))
-        report = reports_collection.find_one(
-            {"battery_id": battery_id},
-            sort=[("created_at", -1)]
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"No assessment report found for battery '{battery_id}'. Cell must be evaluated before approval."
         )
 
-    credit = payload.exchange_credit_inr if payload.exchange_credit_inr is not None else 28500.0
-    if report and "indicative_valuation" in report:
-        credit = float(report["indicative_valuation"].get("net_indicative_valuation_inr", credit))
+    # 4. Decision check: FURTHER_TESTING_REQUIRED cannot be approved
+    decision = report.get("decision", "FURTHER_TESTING_REQUIRED")
+    if decision in ("FURTHER_TESTING_REQUIRED", "FURTHER_TESTING"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot approve battery '{battery_id}' with decision '{decision}'. Further testing required."
+        )
+
+    # 5. Route validation rules per Frozen Contract C4
+    approved_route = payload.approved_route or "Recycling"
+    raw_safety = report.get("safety_status", "")
+    is_quarantined = (
+        decision in ("QUARANTINE", "QUARANTINE_SPECIALIST_REVIEW") or
+        raw_safety in ("QUARANTINE_SPECIALIST_REVIEW", "CRITICAL_DANGER", "FAILED")
+    )
+
+    if is_quarantined:
+        if approved_route != "Recycling (specialist handling)":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Quarantined batteries can only take approved_route 'Recycling (specialist handling)'."
+            )
+    else:
+        # Eligible application names from analysis
+        analysis = report.get("analysis", {})
+        matches = analysis.get("second_life_matches", [])
+        eligible_apps = [m.get("application") for m in matches if m.get("suitability") in ("Optimal", "Eligible")]
+        eligible_route_ids = [m.get("route_id") for m in matches if m.get("suitability") in ("Optimal", "Eligible")]
+        allowed = set(eligible_apps + eligible_route_ids + ["Recycling", "recycling"])
+
+        # Also include pathways from m3_assessment if eligible
+        m3_mbco = report.get("m3_assessment", {}).get("mbco_circularity_decision", {})
+        p_evals = m3_mbco.get("pathway_evaluations", {})
+        for k, v in p_evals.items():
+            if v.get("eligibility"):
+                allowed.add(k)
+                if v.get("pathway_name"):
+                    allowed.add(v.get("pathway_name"))
+
+        if analysis.get("recommended_app"):
+            allowed.add(analysis["recommended_app"])
+
+        allowed_lower = {str(a).lower() for a in allowed if a}
+        if approved_route.lower() not in allowed_lower:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Route '{approved_route}' is not eligible for this battery. Eligible routes: {sorted(list(allowed))}"
+            )
+
+    # 6. Exchange credit from latest analysis (no 28500 default; may be null)
+    analysis = report.get("analysis", {})
+    credit = payload.exchange_credit_inr
+    if credit is None:
+        credit = analysis.get("exchange_credit_inr")
+
+    # 7. Generate verified passport
+    approved_at = datetime.now(timezone.utc).isoformat()
+    try:
+        approved_year = datetime.fromisoformat(approved_at).year
+    except Exception:
+        approved_year = 2026
+
+    passport_id = f"PASSPORT-{battery_id}-{approved_year}"
+    public_base = os.getenv("PUBLIC_BASE_URL", "http://localhost:3000")
+    verification_url = f"{public_base}/verify/{battery_id}"
+
+    passport = generate_battery_passport(
+        battery=battery,
+        report=report,
+        approved_route=approved_route,
+        technician_id=payload.technician_id,
+        approved_at=approved_at,
+        technician_notes=payload.technician_notes,
+    )
+    passport["passport_id"] = passport_id
+    passport["verification_url"] = verification_url
+    passport["exchange_credit_inr"] = credit
+
+    # 8. Store passport on report
+    reports_collection.update_one(
+        {"_id": report["_id"]},
+        {"$set": {"passport": passport}}
+    )
 
     txn_id = f"TXN-{uuid.uuid4().hex[:8].upper()}"
-    passport_id = f"PASSPORT-{battery_id}-2026"
-
-    sig_content = f"{battery_id}:{payload.technician_id}:{payload.approved_route}:{now_iso}"
-    sha256_hash = hashlib.sha256(sig_content.encode("utf-8")).hexdigest()
-
-    passport_doc = {
-        "passport_id": passport_id,
-        "battery_id": battery_id,
-        "approved_route": payload.approved_route or "Home Solar Storage",
-        "technician_id": payload.technician_id,
-        "technician_notes": payload.technician_notes or "Passed visual and technical screening",
-        "minted_at": now_iso,
-        "sha256_hash": sha256_hash,
-        "exchange_credit_inr": credit,
-        "verification_url": f"http://localhost:5173/verify/{battery_id}"
-    }
-
     txn_record = {
         "transaction_id": txn_id,
         "battery_id": battery_id,
         "technician_id": payload.technician_id,
         "approved": True,
-        "approved_route": payload.approved_route or "Home Solar Storage",
+        "approved_route": approved_route,
         "notes": payload.technician_notes,
         "indicative_credit_inr": credit,
-        "signature_hash": sha256_hash,
-        "timestamp": now_iso
+        "signature_hash": passport["integrity_hash"],
+        "timestamp": approved_at
     }
     exchanges_collection.insert_one(txn_record)
 
@@ -1367,15 +1435,10 @@ def approve_and_exchange_endpoint(payload: ApproveAndExchangeRequest):
         {"battery_id": battery_id},
         {"$set": {
             "status": "Approved",
-            "approved_route": payload.approved_route or "Home Solar Storage",
-            "updated_at": now_iso
+            "approved_route": approved_route,
+            "updated_at": approved_at
         }}
     )
-    if report:
-        reports_collection.update_one(
-            {"_id": report["_id"]},
-            {"$set": {"passport": passport_doc}}
-        )
 
     inventory_collection.update_one(
         {"battery_id": battery_id},
@@ -1383,10 +1446,10 @@ def approve_and_exchange_endpoint(payload: ApproveAndExchangeRequest):
             "$set": {
                 "battery_id": battery_id,
                 "chemistry": battery.get("chemistry", "LFP"),
-                "soh": report.get("soh") if report else None,  # Actual SOH or null — not fabricated.
+                "soh": report.get("soh"),
                 "status": "Available",
                 "quantity": 1,
-                "updated_at": now_iso
+                "updated_at": approved_at
             }
         },
         upsert=True
@@ -1396,9 +1459,10 @@ def approve_and_exchange_endpoint(payload: ApproveAndExchangeRequest):
         "status": "approved",
         "battery_id": battery_id,
         "passport_id": passport_id,
-        "sha256_hash": sha256_hash,
-        "minted_at": now_iso,
-        "verification_url": f"http://localhost:5173/verify/{battery_id}"
+        "sha256_hash": passport["integrity_hash"],
+        "minted_at": approved_at,
+        "verification_url": verification_url,
+        "passport": passport
     }
 
 

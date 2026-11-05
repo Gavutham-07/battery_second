@@ -1,7 +1,7 @@
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 def serialize_canonical_passport(passport: Dict[str, Any]) -> str:
@@ -15,6 +15,9 @@ def serialize_canonical_passport(passport: Dict[str, Any]) -> str:
         "rated_capacity_ah": float(passport.get("rated_capacity_ah", 0.0)),
         "manufacturer": passport.get("manufacturer"),
         "source_vehicle": passport.get("source_vehicle"),
+        "approved_route": passport.get("approved_route"),
+        "technician_id": passport.get("technician_id"),
+        "approved_at": passport.get("approved_at"),
         "assessment": {
             "soh": float(passport["assessment"]["soh"]) if passport.get("assessment", {}).get("soh") is not None else None,
             "available_capacity_ah": float(passport["assessment"]["available_capacity_ah"]) if passport.get("assessment", {}).get("available_capacity_ah") is not None else None,
@@ -34,7 +37,14 @@ def compute_passport_hash(passport: Dict[str, Any]) -> str:
     return hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
 
 
-def generate_battery_passport(battery: Dict[str, Any], report: Dict[str, Any]) -> Dict[str, Any]:
+def generate_battery_passport(
+    battery: Dict[str, Any],
+    report: Dict[str, Any],
+    approved_route: Optional[str] = None,
+    technician_id: Optional[str] = None,
+    approved_at: Optional[str] = None,
+    technician_notes: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Assembles a verifiable Digital Battery Passport from battery identity and assessment report,
     calculates the cryptographic SHA-256 integrity hash, and generates a QR code reference string.
@@ -46,6 +56,10 @@ def generate_battery_passport(battery: Dict[str, Any], report: Dict[str, Any]) -
         "rated_capacity_ah": float(battery.get("rated_capacity_ah", 2.5)),
         "manufacturer": battery.get("manufacturer"),
         "source_vehicle": battery.get("source_vehicle"),
+        "approved_route": approved_route,
+        "technician_id": technician_id,
+        "approved_at": approved_at,
+        "technician_notes": technician_notes,
         "assessment": {
             "soh": report.get("soh"),
             "available_capacity_ah": report.get("available_capacity_ah"),
@@ -79,7 +93,7 @@ def verify_battery_passport(passport_data: Dict[str, Any]) -> Dict[str, Any]:
             "verified_at": datetime.now(timezone.utc).isoformat()
         }
 
-    claimed_hash = passport_data.get("integrity_hash") or passport_data.get("sha256_hash")
+    claimed_hash = passport_data.get("integrity_hash")
     battery_id = passport_data.get("battery_id", "UNKNOWN")
 
     if not claimed_hash:
@@ -88,7 +102,7 @@ def verify_battery_passport(passport_data: Dict[str, Any]) -> Dict[str, Any]:
             "battery_id": battery_id,
             "computed_hash": "",
             "matched": False,
-            "error": "Missing 'integrity_hash' or 'sha256_hash' in passport payload",
+            "error": "Missing 'integrity_hash' in passport payload",
             "verified_at": datetime.now(timezone.utc).isoformat()
         }
 
