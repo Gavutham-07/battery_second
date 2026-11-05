@@ -13,9 +13,19 @@ Supports both live MongoDB instances and deterministic offline JSON caching.
 import os
 import json
 import hashlib
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from pymongo import MongoClient
+
+try:
+    from backend.passport import generate_battery_passport, verify_battery_passport
+except ImportError:
+    try:
+        from passport import generate_battery_passport, verify_battery_passport
+    except ImportError:
+        generate_battery_passport = None
+        verify_battery_passport = None
 
 
 def get_demo_dataset():
@@ -94,6 +104,50 @@ def get_demo_dataset():
         }
     ]
 
+    # Construct canonical BAT-103 passport using the official passport module
+    bat103_battery = {
+        "battery_id": "BAT-103",
+        "chemistry": "LFP",
+        "rated_capacity_ah": 40.0,
+        "manufacturer": "BYD FinDreams",
+        "source_vehicle": "Mahindra XUV400",
+    }
+    bat103_rep_meta = {
+        "battery_id": "BAT-103",
+        "soh": 89.4,
+        "available_capacity_ah": 35.76,
+        "safety_status": "PASSED",
+        "confidence": 97.0,
+        "decision": "CONTINUE_EV",
+        "mode": "VIRTUAL",
+    }
+    if generate_battery_passport is not None:
+        bat103_passport = generate_battery_passport(bat103_battery, bat103_rep_meta)
+        bat103_passport["passport_id"] = "PASSPORT-BAT-103-2026"
+        bat103_passport["approved_route"] = "E-Rickshaw / Light EV"
+        bat103_passport["technician_id"] = "TECH-BLR-02"
+        bat103_passport["technician_notes"] = "Physical cell visual inspection cleared. Terminal busbars in factory condition."
+        bat103_passport["minted_at"] = bat103_passport.get("issued_at", now_iso)
+        bat103_passport["sha256_hash"] = bat103_passport.get("integrity_hash")
+        bat103_passport["exchange_credit_inr"] = 32600.0
+        bat103_passport["verification_url"] = "http://localhost:5173/verify/BAT-103"
+        if verify_battery_passport is not None:
+            verification_check = verify_battery_passport(bat103_passport)
+            assert verification_check.get("valid") is True, f"Seeded passport integrity check failed: {verification_check}"
+    else:
+        bat103_passport = {
+            "passport_id": "PASSPORT-BAT-103-2026",
+            "battery_id": "BAT-103",
+            "approved_route": "E-Rickshaw / Light EV",
+            "technician_id": "TECH-BLR-02",
+            "technician_notes": "Physical cell visual inspection cleared. Terminal busbars in factory condition.",
+            "minted_at": now_iso,
+            "integrity_hash": hashlib.sha256("BAT-103:TECH-BLR-02:E-Rickshaw / Light EV:2026".encode("utf-8")).hexdigest(),
+            "sha256_hash": hashlib.sha256("BAT-103:TECH-BLR-02:E-Rickshaw / Light EV:2026".encode("utf-8")).hexdigest(),
+            "exchange_credit_inr": 32600.0,
+            "verification_url": "http://localhost:5173/verify/BAT-103"
+        }
+
     reports_docs = [
         # BAT-102 Report: Repurpose
         {
@@ -143,17 +197,7 @@ def get_demo_dataset():
                     "processing_fee_inr": 1000.0
                 }
             },
-            "passport": {
-                "passport_id": "PASSPORT-BAT-103-2026",
-                "battery_id": "BAT-103",
-                "approved_route": "E-Rickshaw / Light EV",
-                "technician_id": "TECH-BLR-02",
-                "technician_notes": "Physical cell visual inspection cleared. Terminal busbars in factory condition.",
-                "minted_at": now_iso,
-                "sha256_hash": hashlib.sha256("BAT-103:TECH-BLR-02:E-Rickshaw / Light EV:2026".encode("utf-8")).hexdigest(),
-                "exchange_credit_inr": 32600.0,
-                "verification_url": "http://localhost:5173/verify/BAT-103"
-            },
+            "passport": bat103_passport,
             "created_at": now_iso
         },
         # BAT-104 Report: Critical Danger -> Recycle
@@ -231,7 +275,7 @@ def save_offline_cache(dataset, output_file="data/seed_data.json"):
     print(f"[CACHE] Demo fixtures saved to {output_file}")
 
 
-def seed_database(mongo_uri="mongodb://localhost:27017", db_name="revolt_db", target_db=None, output_cache="data/seed_data.json"):
+def seed_database(mongo_uri="mongodb://localhost:27017", db_name="revolt_db", target_db=None, output_cache="data/seed_data.json", force_reseed=False):
     """Populates MongoDB and offline cache with demo datasets."""
     dataset = get_demo_dataset()
     save_offline_cache(dataset, output_cache)
@@ -239,6 +283,12 @@ def seed_database(mongo_uri="mongodb://localhost:27017", db_name="revolt_db", ta
     # If an explicit database handle is provided (e.g., mongomock during unit tests)
     if target_db is not None:
         demo_ids = [b["battery_id"] for b in dataset["batteries"]]
+        if not force_reseed:
+            existing_count = target_db["batteries"].count_documents({"battery_id": {"$in": demo_ids}})
+            if existing_count == len(demo_ids):
+                print(f"[MOCK] Demo records already present ({existing_count} items). Skipping re-seed.")
+                return {"status": "SKIPPED_ALREADY_EXISTS", "mode": "MOCK_DB", "counts": {k: len(v) for k, v in dataset.items()}}
+
         target_db["batteries"].delete_many({"battery_id": {"$in": demo_ids}})
         target_db["reports"].delete_many({"battery_id": {"$in": demo_ids}})
         target_db["batteries"].insert_many(dataset["batteries"])
@@ -258,6 +308,12 @@ def seed_database(mongo_uri="mongodb://localhost:27017", db_name="revolt_db", ta
         db = client[db_name]
 
         demo_ids = [b["battery_id"] for b in dataset["batteries"]]
+        if not force_reseed:
+            existing_count = db["batteries"].count_documents({"battery_id": {"$in": demo_ids}})
+            if existing_count == len(demo_ids):
+                print(f"[MONGODB] Demo records already present ({existing_count} items). Skipping destructive re-seed.")
+                return {"status": "SKIPPED_ALREADY_EXISTS", "mode": "MONGODB", "counts": {k: len(v) for k, v in dataset.items()}}
+
         db["batteries"].delete_many({"battery_id": {"$in": demo_ids}})
         db["reports"].delete_many({"battery_id": {"$in": demo_ids}})
         db["tests"].delete_many({"battery_id": {"$in": demo_ids}})
@@ -283,4 +339,5 @@ def seed_database(mongo_uri="mongodb://localhost:27017", db_name="revolt_db", ta
 
 
 if __name__ == "__main__":
-    seed_database()
+    force = "--force-reseed" in sys.argv or "-f" in sys.argv
+    seed_database(force_reseed=force)

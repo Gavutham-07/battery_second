@@ -1,6 +1,6 @@
 # REVOLT Platform — Hackathon Demonstration Runbook
 
-> **Platform Version:** 1.0.0 (Production Hackathon Release)  
+> **Platform Version:** 1.0.0 (Hackathon Demonstration Build — Prototype)  
 > **Target Audience:** Hackathon Judges, Evaluators, Engineering Auditors, Industry Stakeholders  
 > **Repository:** `d:\battery_second\battery_second` | Branch: `feat-integration`
 
@@ -80,11 +80,11 @@ flowchart TD
      - Live plot rendering with dynamic color-coded thresholds.
   4. At $t = 90\text{s}$, the system terminates data acquisition, calculates Coulombic integration:
      $$Q = \int I \, dt$$
-     and applies the 90s SOH correlation model.
+     and executes rapid safety screening and data confidence analysis. (Note: Full numerical SOH estimation is validated for complete discharge cycles; short-pulse screening reports protocol-appropriate confidence and safety states).
   5. The platform displays:
-     - **Estimated SOH:** ~88–92%
-     - **Available Capacity:** ~44.5 Ah
-     - **Safety Status:** `PASSED`
+     - **Safety Screening:** `PASSED` / `Safe`
+     - **Confidence Score:** High (~92–97%)
+     - **Thermal Stability:** Validated ($dT/dt < 0.50^\circ\text{C/s}$)
      - **Recommended Action:** `CONTINUE_EV` or `SECOND_LIFE_STORAGE`
 
 ---
@@ -126,9 +126,10 @@ flowchart TD
   5. The verification badge renders **PASSPORT VERIFIED / AUTHENTIC**:
      - Clarifies that SHA-256 guarantees record integrity and tamper evidence.
   6. **Tamper Simulation Test:**
-     - Make a simulated request with an invalid hash:
-       `GET /api/passport/verify/BAT-103?hash=corrupted_hash_xyz`
-     - The verification portal immediately flashes a red security warning: **TAMPERING DETECTED / RECORD COMPROMISED**.
+     - Test tamper detection by submitting an altered payload to `POST /api/passport/verify`:
+       `{"battery_id": "BAT-103", "integrity_hash": "corrupted_hash_xyz"}`
+     - Or inspect verification at `http://localhost:5173/verify/BAT-103`
+     - The verification engine immediately flags: `valid: false` / **TAMPERING DETECTED / RECORD COMPROMISED**.
 
 ---
 
@@ -174,10 +175,10 @@ flowchart TD
 
 For hackathon venues with restricted or unstable WiFi connectivity, ReVolt includes three offline execution layers:
 
-1. **Virtual Battery Circuit Mode (`hardware/virtual_battery.py`):**
+1. **Virtual Battery Circuit Mode (`hardware/virtual_generator.py`):**
    - Emulates an electro-chemical RC cell with load transients, internal resistance voltage drop ($I \cdot R_{int}$), and thermal generation ($I^2 R + \text{entropic heat}$).
    - Zero physical hardware or internet connection required.
-2. **Recorded Telemetry Replay Mode (`hardware/csv_replay.py`):**
+2. **Recorded Telemetry Replay Mode (`hardware/replay_runner.py`):**
    - Replays high-precision laboratory test benches from pre-recorded CSV test logs at 1x, 2x, or 10x speeds.
 3. **Pre-Seeded Offline Cache (`data/seed_data.json`):**
    - Automatically loaded by the platform if the local MongoDB daemon is offline, ensuring zero disruption during live judging.

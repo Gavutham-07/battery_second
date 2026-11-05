@@ -93,12 +93,20 @@ class AnalyzeRequest(BaseModel):
 
 class FlexibleWhatIfRequest(BaseModel):
     battery_id: str
+    current_soh: Optional[float] = None
+    chemistry: Optional[str] = None
+    target_application: Optional[str] = None
     daily_usage_hours: Optional[float] = None
     ambient_temperature_c: Optional[float] = None
+    ambient_temp_c: Optional[float] = None
     depth_of_discharge_pct: Optional[float] = None
+    cycle_depth_dod: Optional[float] = None
     daily_hours: Optional[float] = None
+    cycles_per_day: Optional[float] = None
     temp_c: Optional[float] = None
     dod_pct: Optional[float] = None
+
+    model_config = {"extra": "allow"}
 
 
 class ApproveAndExchangeRequest(BaseModel):

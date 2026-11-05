@@ -40,9 +40,28 @@ $pidInfo = @{
 
 Set-Content -Path (Join-Path $projectRoot ".revolt_pids.json") -Value $pidInfo
 
-# 5. Readiness Notification & Endpoint Directory
-Start-Sleep -Seconds 2
-Write-Host "`n[5/5] ReVolt Platform is ONLINE!" -ForegroundColor Green
+# 5. Health & Readiness Verification
+Write-Host "`n[5/5] Awaiting backend health readiness..." -ForegroundColor Yellow
+$maxWait = 30
+$elapsed = 0
+$backendReady = $false
+while ($elapsed -lt $maxWait) {
+    try {
+        $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+        if ($resp.StatusCode -eq 200) {
+            $backendReady = $true
+            break
+        }
+    } catch {}
+    Start-Sleep -Seconds 1
+    $elapsed++
+}
+
+if ($backendReady) {
+    Write-Host "[5/5] ReVolt Platform is ONLINE and HEALTHY! (Ready in ${elapsed}s)" -ForegroundColor Green
+} else {
+    Write-Host "[5/5] ReVolt Platform launched (backend health pending)" -ForegroundColor Yellow
+}
 Write-Host "----------------------------------------------------------------------" -ForegroundColor Gray
 Write-Host " Web Portal:                http://localhost:5173" -ForegroundColor White
 Write-Host " REST API & Swagger UI:     http://127.0.0.1:8000/docs" -ForegroundColor White

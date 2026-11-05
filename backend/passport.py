@@ -59,6 +59,7 @@ def generate_battery_passport(battery: Dict[str, Any], report: Dict[str, Any]) -
 
     integrity_hash = compute_passport_hash(passport)
     passport["integrity_hash"] = integrity_hash
+    passport["sha256_hash"] = integrity_hash
     passport["qr_code"] = f"revolt://passport/{passport['battery_id']}?hash={integrity_hash[:16]}"
     return passport
 
@@ -78,7 +79,7 @@ def verify_battery_passport(passport_data: Dict[str, Any]) -> Dict[str, Any]:
             "verified_at": datetime.now(timezone.utc).isoformat()
         }
 
-    claimed_hash = passport_data.get("integrity_hash")
+    claimed_hash = passport_data.get("integrity_hash") or passport_data.get("sha256_hash")
     battery_id = passport_data.get("battery_id", "UNKNOWN")
 
     if not claimed_hash:
@@ -87,7 +88,7 @@ def verify_battery_passport(passport_data: Dict[str, Any]) -> Dict[str, Any]:
             "battery_id": battery_id,
             "computed_hash": "",
             "matched": False,
-            "error": "Missing 'integrity_hash' in passport payload",
+            "error": "Missing 'integrity_hash' or 'sha256_hash' in passport payload",
             "verified_at": datetime.now(timezone.utc).isoformat()
         }
 

@@ -47,8 +47,10 @@ try:
         compute_passport_hash,
     )
     from backend.pack_grouper import find_optimal_cell_pack
+    # NOTE: backend.engine (Member 3) is the single authoritative AI engine.
+    # ai_engine/ is retained as a legacy prototype for reference only — not used in production.
     from backend.engine import evaluate_battery as evaluate_battery_m3
-    from ai_engine import evaluate_battery, calculate_valuation, simulate_what_if
+    from backend.ai.valuation import calculate_route_valuation as _m3_calculate_valuation
 except ImportError:
     from db import (
         test_connection,
@@ -84,8 +86,10 @@ except ImportError:
         compute_passport_hash,
     )
     from pack_grouper import find_optimal_cell_pack
+    # NOTE: backend.engine (Member 3) is the single authoritative AI engine.
+    # ai_engine/ is retained as a legacy prototype for reference only — not used in production.
     from engine import evaluate_battery as evaluate_battery_m3
-    from ai_engine import evaluate_battery, calculate_valuation, simulate_what_if
+    from backend.ai.valuation import calculate_route_valuation as _m3_calculate_valuation
 
 
 @asynccontextmanager
@@ -131,11 +135,19 @@ def root():
 
 @app.get("/api/health", tags=["System"])
 def health_check():
+    import pathlib
     db_ok = test_connection()
+    artifacts_path = pathlib.Path("backend/models/research_artifacts")
+    artifacts_ok = artifacts_path.exists() and any(artifacts_path.glob("*.pkl"))
     return {
         "status": "healthy" if db_ok else "degraded",
         "database": "connected" if db_ok else "disconnected",
         "database_name": MONGO_DB_NAME,
+        "ai_engine": "backend.engine — Member 3 authoritative engine",
+        "legacy_ai_engine": "ai_engine/ — prototype retained for reference, not used in production",
+        "research_artifacts": "available" if artifacts_ok else "unavailable — safety screening uses rule-based fallback",
+        "hardware_bridge": "not_connected — virtual/replay/dataset modes active for demonstration",
+        "build_type": "Hackathon Demonstration Build — Prototype",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
@@ -470,49 +482,58 @@ def run_evaluation(payload: AnalysisRequest):
         .sort("sec", 1)
         .limit(1000)
     )
+
+    if not telemetry:
+        return {
+            "battery_id": payload.battery_id,
+            "status": "no_telemetry",
+            "message": "No telemetry recorded for this battery. Submit readings via POST /api/live-data before requesting an evaluation.",
+            "soh": None,
+            "decision": "FURTHER_TESTING"
+        }
+
     latest_mode = telemetry[-1].get("mode", "LIVE") if telemetry else "LIVE"
-    metadata = {
-        "battery_id": payload.battery_id,
-        "chemistry": payload.chemistry,
-        "rated_capacity_ah": payload.rated_capacity_ah
-    }
 
-    # Execute foundational AI intelligence engine
-    evaluation = evaluate_battery(telemetry, metadata, mode=latest_mode)
-    soh_val = float(evaluation.get("soh") or 82.5)
-
-    # Execute Member 3 integration engine
-    m3_eval = evaluate_battery_m3(
+    # Single authoritative assessment: Member 3 engine only.
+    # No soh_override — let the engine determine SOH from protocol; short pulse → null (not_available_for_this_protocol).
+    m3_report = evaluate_battery_m3(
         readings=telemetry,
         chemistry=payload.chemistry,
         rated_capacity_ah=payload.rated_capacity_ah,
-        soh_override=soh_val
     )
 
-    # Calculate itemized valuation
-    valuation = calculate_valuation(
-        battery_id=payload.battery_id,
-        chemistry=payload.chemistry,
-        rated_capacity_ah=payload.rated_capacity_ah,
-        available_capacity_ah=evaluation.get("available_capacity_ah"),
-        soh=soh_val,
-        safety_status=evaluation.get("safety_status"),
-    )
+    # Extract all results from Member 3 report only.
+    soh_eval = m3_report.get("soh_evaluation", {})
+    soh_pct = soh_eval.get("soh_pct")  # May legitimately be None for short pulse protocols.
+
+    safety_scr = m3_report.get("safety_screening", {})
+    confidence_eval = m3_report.get("confidence_evaluation", {})
+    mbco_decision = m3_report.get("mbco_circularity_decision", {})
+    valuation = m3_report.get("indicative_valuation", {})
+    lifetime_scen = m3_report.get("lifetime_scenarios", {})
+
+    # Safety: missing safety field → UNKNOWN → further testing. Never default to safe.
+    safety_state = safety_scr.get("safety_state", "UNKNOWN")
+    is_safe = safety_scr.get("is_safe_for_second_life", False)  # Default False — missing = not confirmed safe.
 
     now_iso = datetime.now(timezone.utc).isoformat()
     report_doc = {
-        "battery_id": evaluation["battery_id"],
-        "soh": evaluation["soh"],
-        "available_capacity_ah": evaluation["available_capacity_ah"],
-        "safety_status": evaluation["safety_status"],
-        "confidence": evaluation["confidence"],
-        "decision": evaluation["decision"],
-        "mode": evaluation["mode"],
-        "data_quality": evaluation["data_quality"],
-        "safety_flags": evaluation["safety_flags"],
-        "mbco_recommendations": evaluation["mbco_recommendations"],
+        "battery_id": payload.battery_id,
+        "soh": soh_pct,  # None is scientifically correct for short-pulse ESP32 data.
+        "available_capacity_ah": soh_eval.get("available_capacity_ah"),
+        "safety_status": safety_state,
+        "safety_flags": safety_scr.get("flags", []),
+        "is_safe_for_second_life": is_safe,
+        "confidence": confidence_eval.get("score"),
+        "confidence_level": confidence_eval.get("level"),
+        "decision": mbco_decision.get("primary_decision", "FURTHER_TESTING"),
+        "ranked_pathways": mbco_decision.get("ranked_pathways", []),
+        "mode": latest_mode,
+        "data_quality": m3_report.get("data_quality", "UNKNOWN"),
+        "mbco_recommendations": mbco_decision.get("recommendations", []),
         "indicative_valuation": valuation,
-        "m3_assessment": m3_eval,
+        "lifetime_scenarios": lifetime_scen,
+        "m3_assessment": m3_report,
         "created_at": now_iso
     }
 
@@ -524,133 +545,149 @@ def run_evaluation(payload: AnalysisRequest):
 @app.post("/api/analyze", tags=["Analysis"])
 def analyze_endpoint(payload: AnalyzeRequest):
     battery_id = payload.battery_id
-    bat = batteries_collection.find_one({"battery_id": battery_id})
+    try:
+        bat = batteries_collection.find_one({"battery_id": battery_id})
+    except Exception:
+        bat = None
+
     chemistry = bat.get("chemistry", "LFP") if bat else "LFP"
     rated_cap = float(bat.get("rated_capacity_ah", 50.0)) if bat else 50.0
 
-    telemetry = list(
-        tests_collection.find({"battery_id": battery_id}, {"_id": 0})
-        .sort("sec", 1)
-        .limit(1000)
-    )
-
-    # Auto-generate 90s screening cycle if no telemetry exists
-    if len(telemetry) < 5:
-        sim_req = SimulateStreamRequest(battery_id=battery_id, data_source="virtual_circuit", test_profile="healthy")
-        simulate_stream_endpoint(sim_req)
+    try:
         telemetry = list(
             tests_collection.find({"battery_id": battery_id}, {"_id": 0})
             .sort("sec", 1)
             .limit(1000)
         )
+    except Exception:
+        telemetry = []
+
+    # Do NOT auto-generate virtual telemetry for a battery without real readings.
+    # Insufficient data → return a clear status; never fabricate measurements.
+    if len(telemetry) < 5:
+        return {
+            "battery_id": battery_id,
+            "status": "insufficient_telemetry",
+            "message": (
+                f"Only {len(telemetry)} telemetry reading(s) found for battery '{battery_id}'. "
+                "Submit at least 5 readings via POST /api/live-data before requesting analysis. "
+                "SOH cannot be estimated without sufficient measurement data."
+            ),
+            "soh_estimate": None,
+            "safety_status": "UNKNOWN",
+            "decision": "FURTHER_TESTING",
+            "data_source": telemetry[-1].get("mode", "UNKNOWN") if telemetry else "UNKNOWN"
+        }
 
     latest_mode = telemetry[-1].get("mode", "LIVE") if telemetry else "LIVE"
 
-    profile = "healthy"
-    if telemetry:
-        profile = telemetry[0].get("profile", "healthy")
-
-    metadata = {
-        "battery_id": battery_id,
-        "chemistry": chemistry,
-        "rated_capacity_ah": rated_cap
-    }
-    evaluation = evaluate_battery(telemetry, metadata, mode=latest_mode)
-
-    raw_eval_soh = evaluation.get("soh")
-    if raw_eval_soh is not None and 40.0 <= raw_eval_soh <= 100.0 and len(telemetry) > 200:
-        soh_val = float(raw_eval_soh)
-    else:
-        if profile == "thermally_unsafe":
-            soh_val = 46.5
-        elif profile == "moderately_aged":
-            soh_val = 74.8
-        else:
-            v_drop = abs(float(telemetry[0].get("v", 3.35)) - float(telemetry[-1].get("v", 3.25)))
-            soh_val = round(max(60.0, min(95.0, 91.5 - v_drop * 25.0)), 1)
-
-    # Member 3 Decision Engine evaluation
+    # Single authoritative assessment: Member 3 engine only.
+    # No soh_override — SOH is determined from protocol; short pulse → null (not_available_for_this_protocol).
     m3_eval = evaluate_battery_m3(
         readings=telemetry,
         chemistry=chemistry,
         rated_capacity_ah=rated_cap,
-        soh_override=soh_val
     )
 
-    valuation = calculate_valuation(
-        battery_id=battery_id,
-        chemistry=chemistry,
-        rated_capacity_ah=rated_cap,
-        available_capacity_ah=evaluation.get("available_capacity_ah"),
-        soh=soh_val,
-        safety_status=evaluation.get("safety_status"),
-    )
+    # Extract all results from Member 3 report.
+    soh_eval = m3_eval.get("soh_evaluation", {})
+    soh_pct = soh_eval.get("soh_pct")  # May be None — that is scientifically correct for short-pulse data.
 
-    # Map safety status
-    safety_status = "Safe"
-    if evaluation.get("safety_status") == "FAILED" or not m3_eval["safety_screening"].get("is_safe_for_second_life", True):
+    safety_scr = m3_eval.get("safety_screening", {})
+    confidence_eval = m3_eval.get("confidence_evaluation", {})
+    mbco_decision = m3_eval.get("mbco_circularity_decision", {})
+    valuation = m3_eval.get("indicative_valuation", {})
+    lifetime_scen = m3_eval.get("lifetime_scenarios", {})
+
+    # Safety: missing safety field defaults to False (not confirmed safe). UNKNOWN → further_testing.
+    safety_state = safety_scr.get("safety_state", "UNKNOWN")
+    is_safe = safety_scr.get("is_safe_for_second_life", False)
+
+    # Map safety state to display label — UNKNOWN is never treated as safe.
+    if not is_safe or safety_state in ("FAILED", "CRITICAL_DANGER"):
         safety_status = "Critical Danger"
-    elif evaluation.get("safety_status") == "WARNING":
+    elif safety_state == "WARNING":
         safety_status = "Warning"
+    elif safety_state == "UNKNOWN":
+        safety_status = "Unknown — Further Testing Required"
+    else:
+        safety_status = "Safe"
 
-    action = "Repurpose"
-    if safety_status == "Critical Danger" or soh_val < 50.0:
-        action = "Recycle"
-    elif soh_val >= 85.0 and safety_status == "Safe":
-        action = "Direct Reuse"
+    # Decision from MBCO engine.
+    primary_decision = mbco_decision.get("primary_decision", "FURTHER_TESTING")
+    ranked_pathways = mbco_decision.get("ranked_pathways", [])
 
-    conf_score = float(evaluation.get("confidence") or 92.0)
-    conf_level = "High" if conf_score >= 80.0 else "Medium"
+    # Map decision to human-readable action.
+    action_map = {
+        "CONTINUE_EV": "Direct Reuse",
+        "SECOND_LIFE_STORAGE": "Repurpose",
+        "FURTHER_TESTING": "Further Testing",
+        "QUARANTINE": "Quarantine",
+        "RECYCLE": "Recycle",
+    }
+    action = action_map.get(primary_decision, "Further Testing")
 
-    second_life_matches = [
-        {
-            "application": "Home Solar Storage",
-            "suitability": "Optimal" if soh_val >= 70.0 and safety_status != "Critical Danger" else "Not Recommended",
-            "predicted_lifetime_years": round(5.5 * (soh_val / 100.0), 1) if safety_status != "Critical Danger" else 0.0,
-            "reason": "Stable discharge plateau matches daily solar charge cycles." if safety_status != "Critical Danger" else "Safety hazard detected. Cell blocked from energy storage."
-        },
-        {
-            "application": "E-Rickshaw / Light EV",
-            "suitability": "Optimal" if (soh_val >= 85.0 and safety_status == "Safe") else ("Good" if soh_val >= 75.0 else "Not Recommended"),
-            "predicted_lifetime_years": round(3.8 * (soh_val / 100.0), 1) if safety_status != "Critical Danger" else 0.0,
-            "reason": "Capable of moderate peak discharge bursts." if safety_status != "Critical Danger" else "Cell unsuited for dynamic vehicle vibrations."
-        },
-        {
-            "application": "UPS / Telecom Backup",
-            "suitability": "Optimal" if soh_val >= 65.0 and safety_status != "Critical Danger" else "Not Recommended",
-            "predicted_lifetime_years": round(6.2 * (soh_val / 100.0), 1) if safety_status != "Critical Danger" else 0.0,
-            "reason": "Low duty cycle preserves remaining capacity." if safety_status != "Critical Danger" else "Critical danger prohibits indoor backup deployment."
-        },
-        {
-            "application": "Solar Streetlight",
-            "suitability": "Optimal" if soh_val >= 60.0 and safety_status != "Critical Danger" else "Not Recommended",
-            "predicted_lifetime_years": round(5.0 * (soh_val / 100.0), 1) if safety_status != "Critical Danger" else 0.0,
-            "reason": "Low C-rate requirement ensures prolonged operational life." if safety_status != "Critical Danger" else "Thermal instability makes cell unviable."
-        }
-    ]
+    conf_score = float(confidence_eval.get("score") or 0.0)
+    conf_level = confidence_eval.get("level") or ("High" if conf_score >= 80.0 else "Medium" if conf_score >= 50.0 else "Low")
+
+    # Second-life matches from MBCO pathways — never hardcoded lifetime formulas.
+    lifetime_note = lifetime_scen.get("status") if isinstance(lifetime_scen, dict) else None
+    second_life_matches = []
+    for pw in ranked_pathways:
+        pw_name = pw.get("pathway") or pw.get("application", "Unknown")
+        pw_eligible = pw.get("eligible", False)
+        # Lifetime from engine result only; null if not_calibrated.
+        pw_lifetime = None
+        if isinstance(lifetime_scen, dict):
+            scenarios = lifetime_scen.get("scenarios", {})
+            if isinstance(scenarios, dict):
+                for _k, _v in scenarios.items():
+                    if isinstance(_v, dict) and _v.get("years_remaining") is not None:
+                        pw_lifetime = _v.get("years_remaining")
+                        break
+        second_life_matches.append({
+            "application": pw_name,
+            "suitability": "Optimal" if pw_eligible else "Not Recommended",
+            "predicted_lifetime_years": pw_lifetime,
+            "lifetime_note": lifetime_note if pw_lifetime is None else None,
+            "reason": pw.get("reason", "See MBCO pathway eligibility."),
+        })
+
+    # Fallback if no pathways returned.
+    if not second_life_matches:
+        second_life_matches = [{
+            "application": "Assessment Required",
+            "suitability": "Unknown",
+            "predicted_lifetime_years": None,
+            "lifetime_note": "not_calibrated — insufficient reference data for this protocol",
+            "reason": "Complete a validated charge/discharge test for pathway eligibility."
+        }]
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    exchange_credit = float(valuation.get("net_indicative_valuation_inr", 25000.0))
-    rem_cap = round(rated_cap * (soh_val / 100.0), 2)
-    res_life = round(5.0 * (soh_val / 100.0), 1)
+    exchange_credit = float(valuation.get("net_indicative_valuation_inr", 0.0)) if isinstance(valuation, dict) else 0.0
+    rem_cap = round(rated_cap * (soh_pct / 100.0), 2) if soh_pct is not None else None
 
     plain_explanation = (
-        f"Cell demonstrates stable voltage characteristics under load with SOH estimated at {soh_val:.1f}%. "
-        f"Safety screening status: {safety_status}. Recommended second-life pathway: {action}."
+        f"Safety screening status: {safety_status}. "
+        f"SOH estimate: {'not_available_for_this_protocol — full discharge cycle required for SOH estimation' if soh_pct is None else f'{soh_pct:.1f}%'}. "
+        f"Recommended second-life pathway: {action}."
     )
 
     report_doc = {
         "battery_id": battery_id,
-        "soh": soh_val,
+        "soh": soh_pct,  # None is correct for short-pulse ESP32 pulse data.
         "available_capacity_ah": rem_cap,
-        "safety_status": "PASSED" if safety_status == "Safe" else ("WARNING" if safety_status == "Warning" else "FAILED"),
+        "safety_status": safety_state,
+        "safety_flags": safety_scr.get("flags", []),
+        "is_safe_for_second_life": is_safe,
         "confidence": conf_score,
-        "decision": "CONTINUE_EV" if action == "Direct Reuse" else ("SECOND_LIFE_STORAGE" if action == "Repurpose" else "RECYCLE"),
+        "decision": primary_decision,
+        "ranked_pathways": ranked_pathways,
         "mode": latest_mode,
-        "data_quality": evaluation.get("data_quality", "HIGH"),
-        "safety_flags": evaluation.get("safety_flags", []),
-        "mbco_recommendations": evaluation.get("mbco_recommendations", []),
+        "data_quality": m3_eval.get("data_quality", "UNKNOWN"),
+        "mbco_recommendations": mbco_decision.get("recommendations", []),
         "indicative_valuation": valuation,
+        "lifetime_scenarios": lifetime_scen,
         "m3_assessment": m3_eval,
         "plain_english_explanation": plain_explanation,
         "second_life_matches": second_life_matches,
@@ -662,7 +699,7 @@ def analyze_endpoint(payload: AnalyzeRequest):
         {"battery_id": battery_id},
         {"$set": {
             "status": "Assessed",
-            "soh_estimate": soh_val,
+            "soh_estimate": soh_pct,
             "safety_status": safety_status,
             "recommended_action": action,
             "updated_at": now_iso
@@ -671,15 +708,18 @@ def analyze_endpoint(payload: AnalyzeRequest):
 
     return {
         "battery_id": battery_id,
-        "soh_estimate": soh_val,
-        "confidence_score": round(conf_score / 100.0, 2),
+        "soh_estimate": soh_pct,  # May be null — scientifically correct for short-pulse protocols.
+        "soh_note": "not_available_for_this_protocol — full discharge cycle required" if soh_pct is None else None,
+        "confidence_score": round(conf_score / 100.0, 2) if conf_score else None,
         "confidence_level": conf_level,
         "safety_status": safety_status,
-        "safety_flags": evaluation.get("safety_flags", []),
+        "safety_flags": safety_scr.get("flags", []),
         "plain_english_explanation": plain_explanation,
         "recommended_action": action,
+        "primary_decision": primary_decision,
         "remaining_capacity_ah": rem_cap,
-        "residual_life_years": res_life,
+        "residual_life_years": None,  # Not fabricated; use lifetime_scenarios from full validated test.
+        "lifetime_note": lifetime_note,
         "exchange_credit_inr": exchange_credit,
         "second_life_matches": second_life_matches
     }
@@ -729,20 +769,34 @@ def get_mbco_recommendations(battery_id: str):
 @app.post("/api/analysis/what-if", tags=["Analysis"])
 def run_what_if_simulation(payload: FlexibleWhatIfRequest):
     battery_id = getattr(payload, "battery_id", "BAT-101")
-    
+
     daily_hours = getattr(payload, "daily_usage_hours", None)
     if daily_hours is None:
-        daily_hours = getattr(payload, "daily_hours", 4.0) or 4.0
+        daily_hours = getattr(payload, "daily_hours", None)
+    if daily_hours is None:
+        cpd = getattr(payload, "cycles_per_day", None)
+        if cpd is not None:
+            daily_hours = float(cpd) * 4.0
+    if daily_hours is None:
+        daily_hours = 4.0
 
     temp_c = getattr(payload, "ambient_temperature_c", None)
     if temp_c is None:
+        temp_c = getattr(payload, "ambient_temp_c", None)
+    if temp_c is None:
         temp_c = getattr(payload, "temp_c", 25.0)
-        if temp_c is None:
-            temp_c = 25.0
+    if temp_c is None:
+        temp_c = 25.0
 
     dod_pct = getattr(payload, "depth_of_discharge_pct", None)
     if dod_pct is None:
-        dod_pct = getattr(payload, "dod_pct", 80.0) or 80.0
+        dod_pct = getattr(payload, "dod_pct", None)
+    if dod_pct is None:
+        c_dod = getattr(payload, "cycle_depth_dod", None)
+        if c_dod is not None:
+            dod_pct = c_dod * 100.0 if c_dod <= 1.0 else c_dod
+    if dod_pct is None:
+        dod_pct = 80.0
 
     current_soh = getattr(payload, "current_soh", None)
     chemistry = getattr(payload, "chemistry", None)
@@ -754,7 +808,8 @@ def run_what_if_simulation(payload: FlexibleWhatIfRequest):
                 sort=[("created_at", -1)]
             )
             if report and current_soh is None:
-                current_soh = float(report.get("soh") or 80.0)
+                # Use actual SOH from report — do not substitute a fabricated value.
+                current_soh = report.get("soh")  # May be None for short-pulse data.
         except Exception:
             pass
 
@@ -765,41 +820,61 @@ def run_what_if_simulation(payload: FlexibleWhatIfRequest):
         except Exception:
             pass
 
-    current_soh = float(current_soh or 80.0)
     chemistry = chemistry or "LFP"
 
-    sim_res = simulate_what_if(
-        battery_id=battery_id,
-        current_soh=current_soh,
-        daily_hours=daily_hours,
-        temp_c=temp_c,
-        dod_pct=dod_pct,
-        chemistry=chemistry
-    )
+    # If SOH is unavailable (not_available_for_this_protocol), require it to be supplied explicitly.
+    if current_soh is None:
+        return {
+            "battery_id": battery_id,
+            "status": "soh_unavailable",
+            "message": (
+                "SOH is not available for this battery (short-pulse protocol or no completed assessment). "
+                "Provide 'current_soh' in the request body to run a what-if simulation, "
+                "or complete a full charge/discharge cycle assessment first."
+            ),
+            "baseline_residual_life_years": None,
+            "simulated_residual_life_years": None,
+        }
 
-    base_life = round(5.0 * (current_soh / 100.0), 1)
-    accel = sim_res.get("acceleration_factor", 1.0)
-    sim_life = round(max(0.5, base_life / max(0.1, accel)), 1)
-    cycles = sim_res.get("projected_cycle_life", 1500)
+    current_soh = float(current_soh)
+
+    # Stress-factor model using usage conditions (no fabricated base lifetime).
+    temp_factor = 1.0 + max(0.0, (temp_c - 25.0) * 0.02)  # +2% degradation per °C above 25°C.
+    dod_factor = 1.0 + max(0.0, (dod_pct - 70.0) * 0.01)  # +1% per % DoD above 70%.
+    usage_factor = 1.0 + max(0.0, (daily_hours - 4.0) * 0.03)  # +3% per extra daily hour above 4 h.
+    accel = round(temp_factor * dod_factor * usage_factor, 3)
+
+    # Projected cycle life (chemistry-based reference, clearly approximate).
+    base_cycles = {"LFP": 2000, "NMC": 1500, "NCA": 1200, "LTO": 10000}.get(chemistry.upper(), 1500)
+    projected_cycles = int(base_cycles * (current_soh / 100.0) / max(0.5, accel))
+
+    # Stress label.
     stress = "High" if temp_c > 35.0 or dod_pct > 85.0 else ("Moderate" if temp_c > 28.0 or dod_pct > 70.0 else "Low")
 
     rec_note = (
         f"Limiting Depth of Discharge to {min(dod_pct, 70.0):.0f}% and maintaining "
-        f"ambient temperature below 30°C extends battery second life by ~{max(0.6, round(sim_life * 0.25, 1))} years."
+        f"ambient temperature below 30°C will reduce degradation acceleration factor "
+        f"(current: {accel:.2f}×) and extend battery second life."
     )
 
     return {
         "battery_id": battery_id,
-        "baseline_residual_life_years": base_life,
-        "simulated_residual_life_years": sim_life,
-        "cycle_life_projection": cycles,
+        "current_soh_pct": current_soh,
+        "chemistry": chemistry,
+        "baseline_residual_life_years": None,  # Not fabricated — requires calibrated lifetime model.
+        "baseline_lifetime_note": "not_calibrated — baseline lifetime requires validated reference data",
+        "simulated_residual_life_years": None,  # Same — not invented.
+        "simulated_lifetime_note": "not_calibrated — use acceleration_factor and projected_cycle_life for relative comparison",
+        "acceleration_factor": accel,
+        "projected_cycle_life": projected_cycles,
         "thermal_stress_factor": stress,
         "recommendation_note": rec_note,
-        "projected_cycle_life": cycles,
-        "projected_months_remaining": sim_res.get("projected_months_remaining"),
-        "acceleration_factor": accel,
-        "recommended_dod_limit": sim_res.get("recommended_dod_limit", 80.0),
-        "input_conditions": sim_res.get("input_conditions", {})
+        "input_conditions": {
+            "daily_usage_hours": daily_hours,
+            "ambient_temperature_c": temp_c,
+            "depth_of_discharge_pct": dod_pct,
+            "chemistry": chemistry,
+        }
     }
 
 
@@ -819,18 +894,19 @@ def get_battery_valuation(battery_id: str):
 
     chemistry = bat.get("chemistry", "LFP") if bat else "LFP"
     rated_cap = float(bat.get("rated_capacity_ah", 2.5)) if bat else 2.5
-    avail_cap = float(report.get("available_capacity_ah") or (rated_cap * 0.8)) if report else rated_cap * 0.8
-    soh = float(report.get("soh") or 80.0) if report else 80.0
+    # Use actual SOH — None is correct for short-pulse data; never substitute a default.
+    soh = report.get("soh") if report else None
     safety_status = report.get("safety_status", "UNKNOWN") if report else "UNKNOWN"
 
-    valuation = calculate_valuation(
-        battery_id=battery_id,
-        chemistry=chemistry,
-        rated_capacity_ah=rated_cap,
-        available_capacity_ah=avail_cap,
-        soh=soh,
-        safety_status=safety_status,
-    )
+    # Return stored valuation if available; otherwise recompute via M3 valuation module.
+    stored_val = report.get("indicative_valuation") if report else None
+    if stored_val and isinstance(stored_val, dict) and stored_val.get("status") not in (None, "not_configured", "soh_unavailable"):
+        valuation = stored_val
+    else:
+        valuation = _m3_calculate_valuation(
+            soh_pct=soh,
+            rated_capacity_ah=rated_cap,
+        )
 
     if report:
         reports_collection.update_one(
@@ -926,48 +1002,57 @@ def get_passport(battery_id: str):
 
 @app.get("/api/verify/{battery_id}", tags=["Passport"])
 def verify_battery_endpoint(battery_id: str):
-    report = reports_collection.find_one(
-        {"battery_id": battery_id},
-        sort=[("created_at", -1)]
-    )
-    bat = batteries_collection.find_one({"battery_id": battery_id})
-
-    if not bat and not report:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Battery ID '{battery_id}' not found in registry"
+    try:
+        report = reports_collection.find_one(
+            {"battery_id": battery_id},
+            sort=[("created_at", -1)]
         )
+    except Exception:
+        report = None
+
+    try:
+        bat = batteries_collection.find_one({"battery_id": battery_id})
+    except Exception:
+        bat = None
 
     passport = report.get("passport") if report else None
-    now_iso = datetime.now(timezone.utc).isoformat()
 
+    # If no passport has been issued, return a clear status — do not fabricate one.
     if not passport:
-        passport = {
-            "passport_id": f"PASSPORT-{battery_id}-2026",
+        return {
+            "verification_status": "PASSPORT_NOT_ISSUED",
             "battery_id": battery_id,
-            "approved_route": bat.get("approved_route", "Home Solar Storage") if bat else "Home Solar Storage",
-            "technician_id": "TECH-01",
-            "minted_at": now_iso,
-            "sha256_hash": hashlib.sha256(f"{battery_id}:TECH-01:VALID:{now_iso}".encode("utf-8")).hexdigest()
+            "message": "No digital passport has been issued for this battery. Complete assessment and call POST /api/passport/generate first.",
+            "hash_integrity_verified": False,
+            "soh_estimate": report.get("soh") if report else None,  # May be None — do not substitute a default.
         }
 
-    soh = float(report.get("soh") or 84.5) if report else 84.5
-    safety = report.get("safety_status", "Safe") if report else "Safe"
-    if safety == "PASSED":
-        safety = "Safe"
-    elif safety == "FAILED":
-        safety = "Critical Danger"
+    # Actually verify the passport hash — only mark verified if the recomputed hash matches.
+    verification = verify_battery_passport(passport)
+    hash_ok = verification.get("valid", False)
+
+    soh = report.get("soh") if report else None  # None is correct for short-pulse data; never substitute a default.
+    safety = report.get("safety_status", "UNKNOWN") if report else "UNKNOWN"
+    # Canonical safety enum mapping.
+    safety_display_map = {
+        "PASSED": "Safe", "SAFE": "Safe",
+        "WARNING": "Warning",
+        "FAILED": "Critical Danger", "CRITICAL_DANGER": "Critical Danger",
+        "UNKNOWN": "Unknown — Further Testing Required",
+    }
+    safety_display = safety_display_map.get(safety.upper() if safety else "UNKNOWN", safety)
 
     return {
-        "verification_status": "Valid",
+        "verification_status": "VERIFIED" if hash_ok else "TAMPERED",
         "battery_id": battery_id,
-        "soh_estimate": soh,
-        "safety_status": safety,
-        "approved_route": passport.get("approved_route", "Home Solar Storage"),
-        "technician_id": passport.get("technician_id", "TECH-01"),
-        "minted_at": passport.get("minted_at", now_iso),
+        "soh_estimate": soh,  # Null is valid — do not invent a number.
+        "safety_status": safety_display,
+        "approved_route": passport.get("approved_route"),
+        "technician_id": passport.get("technician_id"),
+        "minted_at": passport.get("minted_at"),
         "sha256_hash": passport.get("sha256_hash", ""),
-        "hash_integrity_verified": True
+        "hash_integrity_verified": hash_ok,  # Only True after actual verify_battery_passport() confirmation.
+        "verification_detail": verification.get("detail"),
     }
 
 
@@ -992,22 +1077,17 @@ def approve_exchange(payload: ExchangeApproval):
     credit = 0.0
     if payload.approved:
         if report and "indicative_valuation" in report:
-            credit = float(report["indicative_valuation"].get("net_indicative_valuation_inr", 0.0))
+            val_doc = report["indicative_valuation"]
+            credit = float(val_doc.get("net_indicative_valuation_inr", 0.0)) if isinstance(val_doc, dict) else 0.0
         else:
-            chemistry = battery.get("chemistry", "LFP")
+            # Recompute valuation via M3 module using actual SOH (may be null).
             rated_cap = float(battery.get("rated_capacity_ah", 2.5))
-            avail_cap = float(report.get("available_capacity_ah") or (rated_cap * 0.8)) if report else rated_cap * 0.8
-            soh = float(report.get("soh") or 80.0) if report else 80.0
-            safety_status = report.get("safety_status", "UNKNOWN") if report else "UNKNOWN"
-            val = calculate_valuation(
-                battery_id=payload.battery_id,
-                chemistry=chemistry,
+            soh = report.get("soh") if report else None  # Actual SOH or null — not substituted.
+            val = _m3_calculate_valuation(
+                soh_pct=soh,
                 rated_capacity_ah=rated_cap,
-                available_capacity_ah=avail_cap,
-                soh=soh,
-                safety_status=safety_status
             )
-            credit = float(val.get("net_indicative_valuation_inr", 0.0))
+            credit = float(val.get("net_indicative_valuation_inr", 0.0)) if isinstance(val, dict) else 0.0
 
     txn_id = f"TXN-{uuid.uuid4().hex[:8].upper()}"
     ts = datetime.now(timezone.utc).isoformat()
@@ -1034,14 +1114,15 @@ def approve_exchange(payload: ExchangeApproval):
     )
 
     if payload.approved:
-        soh_val = float(report.get("soh") or 80.0) if report else 80.0
+        # Use actual SOH from assessment — None is valid (not_available_for_this_protocol). Do not substitute a default.
+        soh_val = report.get("soh") if report else None
         inventory_collection.update_one(
             {"battery_id": payload.battery_id},
             {
                 "$set": {
                     "battery_id": payload.battery_id,
                     "chemistry": battery.get("chemistry", "LFP"),
-                    "soh": soh_val,
+                    "soh": soh_val,  # May be null — not fabricated.
                     "status": "AVAILABLE",
                     "quantity": 1,
                     "updated_at": ts
@@ -1142,7 +1223,7 @@ def approve_and_exchange_endpoint(payload: ApproveAndExchangeRequest):
             "$set": {
                 "battery_id": battery_id,
                 "chemistry": battery.get("chemistry", "LFP"),
-                "soh": float(report.get("soh") or 82.5) if report else 82.5,
+                "soh": report.get("soh") if report else None,  # Actual SOH or null — not fabricated.
                 "status": "Available",
                 "quantity": 1,
                 "updated_at": now_iso
@@ -1216,17 +1297,25 @@ def get_recycler_batch_endpoint():
     for b in all_bats:
         bid = b.get("battery_id")
         rep = all_reports.get(bid, {})
-        soh = float(rep.get("soh") or b.get("soh_estimate") or 80.0)
+        # Use actual SOH — None means not yet assessed, not 80%.
+        soh_raw = rep.get("soh") if rep else b.get("soh_estimate")
+        soh = float(soh_raw) if soh_raw is not None else None
         chem = b.get("chemistry", "LFP")
-        raw_safety = rep.get("safety_status", "Safe")
-        safety = "Safe"
-        if raw_safety in ("FAILED", "Critical Danger"):
+        raw_safety = rep.get("safety_status", "UNKNOWN") if rep else "UNKNOWN"
+        # Safety: UNKNOWN → not confirmed safe → route to further_testing display.
+        if raw_safety in ("FAILED", "Critical Danger", "CRITICAL_DANGER"):
             safety = "Critical Danger"
         elif raw_safety == "WARNING":
             safety = "Warning"
+        elif raw_safety in ("PASSED", "SAFE"):
+            safety = "Safe"
+        else:
+            safety = "Unknown"
 
-        val_doc = rep.get("indicative_valuation", {})
-        val_credit = float(val_doc.get("net_indicative_valuation_inr", round(25000.0 * (soh / 100.0), 0) if safety != "Critical Danger" else 4500.0))
+        val_doc = rep.get("indicative_valuation", {}) if rep else {}
+        # Only use real valuation; if null SOH, credit is unknown.
+        val_credit_raw = val_doc.get("net_indicative_valuation_inr") if val_doc else None
+        val_credit = float(val_credit_raw) if val_credit_raw is not None else 0.0
 
         total_waste += 35
         total_co2 += 80
@@ -1240,7 +1329,14 @@ def get_recycler_batch_endpoint():
             "status": b.get("status", "Available")
         }
 
-        if safety == "Critical Danger" or soh < 50.0:
+        # Route battery: unknown SOH or unknown safety → further testing, not auto-approved.
+        if safety == "Critical Danger":
+            item["status"] = "Material Hydrometallurgy"
+            recycle_batch.append(item)
+        elif safety == "Unknown" or soh is None:
+            item["status"] = "Further Assessment Required"
+            repurpose_batch.append(item)
+        elif soh < 50.0:
             item["status"] = "Material Hydrometallurgy"
             recycle_batch.append(item)
         elif soh >= 85.0 and safety == "Safe":

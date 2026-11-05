@@ -14,8 +14,8 @@
       "safety_status": null,
       "recommended_action": null,
       "owner_preference": null,
-      "created_at": "2026-11-04T22:08:39.322918+00:00",
-      "updated_at": "2026-11-04T22:08:39.322918+00:00"
+      "created_at": "2026-11-04T23:59:20.247974+00:00",
+      "updated_at": "2026-11-04T23:59:20.247974+00:00"
     },
     {
       "battery_id": "BAT-102",
@@ -31,8 +31,8 @@
       "safety_status": "Safe",
       "recommended_action": "Repurpose",
       "owner_preference": "Sell / Exchange",
-      "created_at": "2026-11-04T22:08:39.322918+00:00",
-      "updated_at": "2026-11-04T22:08:39.322918+00:00"
+      "created_at": "2026-11-04T23:59:20.247974+00:00",
+      "updated_at": "2026-11-04T23:59:20.247974+00:00"
     },
     {
       "battery_id": "BAT-103",
@@ -49,8 +49,8 @@
       "safety_status": "Safe",
       "recommended_action": "Direct Reuse",
       "owner_preference": "Reuse",
-      "created_at": "2026-11-04T22:08:39.322918+00:00",
-      "updated_at": "2026-11-04T22:08:39.322918+00:00"
+      "created_at": "2026-11-04T23:59:20.247974+00:00",
+      "updated_at": "2026-11-04T23:59:20.247974+00:00"
     },
     {
       "battery_id": "BAT-104",
@@ -66,8 +66,8 @@
       "safety_status": "Critical Danger",
       "recommended_action": "Recycle",
       "owner_preference": "Sell / Exchange",
-      "created_at": "2026-11-04T22:08:39.322918+00:00",
-      "updated_at": "2026-11-04T22:08:39.322918+00:00"
+      "created_at": "2026-11-04T23:59:20.247974+00:00",
+      "updated_at": "2026-11-04T23:59:20.247974+00:00"
     }
   ],
   "reports": [
@@ -95,7 +95,7 @@
           "processing_fee_inr": 1000.0
         }
       },
-      "created_at": "2026-11-04T22:08:39.322918+00:00"
+      "created_at": "2026-11-04T23:59:20.247974+00:00"
     },
     {
       "battery_id": "BAT-103",
@@ -120,17 +120,32 @@
         }
       },
       "passport": {
-        "passport_id": "PASSPORT-BAT-103-2026",
         "battery_id": "BAT-103",
+        "chemistry": "LFP",
+        "rated_capacity_ah": 40.0,
+        "manufacturer": "BYD FinDreams",
+        "source_vehicle": "Mahindra XUV400",
+        "assessment": {
+          "soh": 89.4,
+          "available_capacity_ah": 35.76,
+          "safety_status": "PASSED",
+          "confidence": 97.0,
+          "decision": "CONTINUE_EV",
+          "mode": "VIRTUAL"
+        },
+        "issued_at": "2026-11-04T23:59:20.247974+00:00",
+        "integrity_hash": "f58479478878c7dd72db271334badd55c898d5892b0891fff362a184712beea0",
+        "sha256_hash": "f58479478878c7dd72db271334badd55c898d5892b0891fff362a184712beea0",
+        "qr_code": "revolt://passport/BAT-103?hash=f58479478878c7dd",
+        "passport_id": "PASSPORT-BAT-103-2026",
         "approved_route": "E-Rickshaw / Light EV",
         "technician_id": "TECH-BLR-02",
         "technician_notes": "Physical cell visual inspection cleared. Terminal busbars in factory condition.",
-        "minted_at": "2026-11-04T22:08:39.322918+00:00",
-        "sha256_hash": "fd9d064ec4efacc5f1c5c5a697a9b4c0e6705bc0b24baab9b95a8fd7a90f1c1a",
+        "minted_at": "2026-11-04T23:59:20.247974+00:00",
         "exchange_credit_inr": 32600.0,
         "verification_url": "http://localhost:5173/verify/BAT-103"
       },
-      "created_at": "2026-11-04T22:08:39.322918+00:00"
+      "created_at": "2026-11-04T23:59:20.247974+00:00"
     },
     {
       "battery_id": "BAT-104",
@@ -159,7 +174,7 @@
           "scrap_floor_applied": true
         }
       },
-      "created_at": "2026-11-04T22:08:39.322918+00:00"
+      "created_at": "2026-11-04T23:59:20.247974+00:00"
     }
   ],
   "inventory": [
@@ -261,7 +276,7 @@
       "notes": "Physical cell visual inspection cleared. Terminal busbars in factory condition.",
       "indicative_credit_inr": 32600.0,
       "signature_hash": "5df457e312df33cccb8a297342fde94aa852fab1cd49ec791f2a853ab6f62055",
-      "timestamp": "2026-11-04T22:08:39.322918+00:00"
+      "timestamp": "2026-11-04T23:59:20.247974+00:00"
     }
   ]
 }
