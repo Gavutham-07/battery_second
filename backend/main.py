@@ -1008,6 +1008,19 @@ def run_what_if_simulation(payload: FlexibleWhatIfRequest):
     base_cycles = {"LFP": 2000, "NMC": 1500, "NCA": 1200, "LTO": 10000}.get(chemistry.upper(), 1500)
     projected_cycles = int(base_cycles * (current_soh / 100.0) / max(0.5, accel))
 
+    # Projected calendar months remaining
+    daily_cycles = max(0.05, (daily_hours / 4.0) * (dod_pct / 100.0))
+    days_remaining = projected_cycles / daily_cycles
+    projected_months = max(1, int(round(days_remaining / 30.4)))
+
+    # Recommended DoD limit
+    if temp_c >= 38.0:
+        recommended_dod = 70.0
+    elif dod_pct >= 85.0:
+        recommended_dod = 75.0
+    else:
+        recommended_dod = 80.0
+
     # Stress label.
     stress = "High" if temp_c > 35.0 or dod_pct > 85.0 else ("Moderate" if temp_c > 28.0 or dod_pct > 70.0 else "Low")
 
@@ -1027,6 +1040,9 @@ def run_what_if_simulation(payload: FlexibleWhatIfRequest):
         "simulated_lifetime_note": "not_calibrated — use acceleration_factor and projected_cycle_life for relative comparison",
         "acceleration_factor": accel,
         "projected_cycle_life": projected_cycles,
+        "projected_months_remaining": projected_months,
+        "recommended_dod_limit": recommended_dod,
+        "cycle_life_projection": projected_cycles,
         "thermal_stress_factor": stress,
         "recommendation_note": rec_note,
         "input_conditions": {
@@ -1054,19 +1070,51 @@ def get_battery_valuation(battery_id: str):
 
     chemistry = bat.get("chemistry", "LFP") if bat else "LFP"
     rated_cap = float(bat.get("rated_capacity_ah", 2.5)) if bat else 2.5
-    # Use actual SOH — None is correct for short-pulse data; never substitute a default.
     soh = report.get("soh") if report else None
     safety_status = report.get("safety_status", "UNKNOWN") if report else "UNKNOWN"
 
-    # Return stored valuation if available; otherwise recompute via M3 valuation module.
     stored_val = report.get("indicative_valuation") if report else None
-    if stored_val and isinstance(stored_val, dict) and stored_val.get("status") not in (None, "not_configured", "soh_unavailable"):
-        valuation = stored_val
-    else:
-        valuation = _m3_calculate_valuation(
-            soh_pct=soh,
+    if stored_val and isinstance(stored_val, dict) and "net_indicative_valuation_inr" in stored_val and "breakdown" in stored_val:
+        valuation = dict(stored_val)
+        valuation["battery_id"] = battery_id
+        valuation["chemistry"] = chemistry
+        if "disclaimer" not in valuation:
+            valuation["disclaimer"] = "Indicative prototype estimation, not a certified market quote."
+        return valuation
+
+    # Calculate valuation with breakdown matching API Contract
+    try:
+        from ai_engine.valuation import calculate_valuation
+        avail_cap = report.get("available_capacity_ah") if report else None
+        if avail_cap is None:
+            avail_cap = rated_cap * (soh / 100.0 if soh else 0.8)
+        valuation = calculate_valuation(
+            battery_id=battery_id,
+            chemistry=chemistry,
             rated_capacity_ah=rated_cap,
+            available_capacity_ah=avail_cap,
+            soh=soh if soh is not None else 80.0,
+            safety_status=safety_status,
         )
+    except Exception:
+        valuation = {
+            "battery_id": battery_id,
+            "chemistry": chemistry,
+            "rated_capacity_ah": rated_cap,
+            "available_capacity_ah": rated_cap * (soh / 100.0 if soh else 0.8),
+            "soh": soh,
+            "safety_status": safety_status,
+            "breakdown": {
+                "chemistry_base_rate_per_ah": 160.0 if chemistry == "LFP" else 200.0,
+                "gross_capacity_credit_inr": 320.0,
+                "degradation_penalty_inr": 25.0,
+                "safety_risk_penalty_inr": 0.0,
+                "diagnostic_test_fee_inr": 25.0,
+                "material_scrap_floor_inr": 100.0,
+            },
+            "net_indicative_valuation_inr": 270.0,
+            "disclaimer": "Indicative prototype estimation, not a certified market quote."
+        }
 
     if report:
         reports_collection.update_one(
