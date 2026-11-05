@@ -4,7 +4,7 @@
 - B1: Install that works anywhere + in-memory test mode (`f4c44ae`)
 - B3: Stream endpoint + analyze mapping (`008ad46`)
 - B4: Approval and passport verification (`f1a2f23`)
-- B5: What-if, valuation, recycler batch, pack grouping (`[B5] What-if, valuation, recycler batch, pack grouping`)
+- B5: What-if, valuation, recycler batch, pack grouping (`7a763db`)
 
 ## In progress
 - None
